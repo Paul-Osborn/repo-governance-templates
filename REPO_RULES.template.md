@@ -29,8 +29,11 @@ the project working.
   ├─ PRD.md                  # project brief — what we're building and why (project-level)
   ├─ WORKLOG.md              # dated running log of what changed (project memory)
   ├─ SPEC.md                 # current feature's plan (optional, per-feature)
-  ├─ lefthook.yml            # pre-commit checks (secret scan, etc.)
-  ├─ .claude/                # hooks + settings that enforce these rules
+  ├─ lefthook.yml            # pre-commit gates — apply to every agent and to manual commits
+  ├─ scripts/hooks/          # the gates themselves (LF-only POSIX sh)
+  ├─ .gitleaks.toml          # secret-scanner config
+  ├─ .governance-version     # which generation of the governance kit this repo has
+  ├─ .claude/                # hooks, settings, and the code-reviewer specialist
   └─ .gitignore
   ```
 
@@ -102,20 +105,44 @@ per project. Commit it **first**, before any code, so ignored files never enter 
 
 ### Pull requests
 - All changes reach `main` through a PR, even solo work — it's the review checkpoint.
-- Get reviewed, then merge it yourself. Before opening the PR, hand the diff to a reviewer agent; fix what's valid and record in the PR what you pushed back on and why. Once CI is green, `gh pr merge --squash --delete-branch`. Never merge red. Never use `--admin`.
-- **Authority ceiling:** A PR touching governance/rule files is the human's to merge, not yours.
+- Get reviewed, then merge it yourself. Once CI is green,
+  `gh pr merge --squash --delete-branch`. Never merge red. Never use `--admin`.
+- **Authority ceiling:** a PR touching governance/rule files is the human's to merge, not
+  yours. See §3a.
 - PR description states: what changed, why, and how it was tested.
-- Keep PRs focused. A bug fix and a refactor are two PRs.
 - A PR must build / run / pass tests (green CI) before merge.
 
-### Plan before you code
+### One cohesive deliverable per branch
+
+An earlier version of these rules said "a bug fix and a refactor are two PRs". Taken
+literally that produced a stream of micro-PRs — a fix, then the test for the fix, then the
+rename the fix needed — each with its own review, its own CI run and its own log entry, and
+none of them reviewable on their own because the context was in the branch next door.
+
+The rule is now: **a branch carries one complete, shippable thing.** That includes the
+implementation, its tests, the supporting fixes it genuinely needs, small supporting
+refactors, and the documentation that goes with it.
+
+Split when the work becomes independently useful on its own, or when what you are now doing
+has a materially different objective from what you set out to do. Defer unrelated cleanup —
+note it, don't smuggle it in. The failure mode on the other side is real too: a branch
+containing three unrelated projects cannot be reviewed or reverted.
+
+### Plan before you code — once
 
 - For anything beyond a one-line edit, write a short plan **before** implementing: which
   files change, what's explicitly out of scope, and how the result will be verified.
-- For a real feature, copy `SPEC.template.md` to `SPEC.md` and fill it in. The spec — not the
-  code — is the thing to review and agree on first. Keep it updated as decisions change.
+- For a real feature, copy `SPEC.template.md` to `SPEC.md`. The spec — not the code — is the
+  thing to review and agree on first. Keep it updated as decisions change.
 - This matters most with AI agents: without an explicit plan and scope, an agent fills the
   gaps with guesses and confidently builds the wrong thing.
+- **The plan is for scope control, not for a second round of permission.** Once the owner has
+  approved *what* is being built, the agent proceeds through the implementation decisions
+  itself and reports what it did. `AGENTS.md` lists the specific things worth interrupting
+  for — product behaviour, scope, money, privacy/security, credentials, destructive or
+  irreversible acts, shared-server topology, major architecture, and the rules themselves.
+  An agent that stops every twenty minutes to ask about a variable name trains the owner to
+  rubber-stamp, and then the interruptions that matter get rubber-stamped too.
 
 ### Prove it works (verification)
 
@@ -123,32 +150,149 @@ per project. Commit it **first**, before any code, so ignored files never enter 
   the exact command run and what it returned, or a screenshot — not just an assertion.
 - Prefer a check the tool can run itself (test suite, build, linter) so mistakes are caught
   automatically instead of waiting for a human to notice them.
+- **Match the check to the risk, not to the clock.** During implementation, run the smallest
+  check that would catch what you just broke. At a meaningful boundary — the branch is
+  stable, you're about to review, you're about to open the PR — run the broad checks, plus
+  any deployment or acceptance checks. High-risk work gets broad verification regardless of
+  how small the diff looks. Re-running the full suite after every one-line edit is not more
+  rigorous; it is slower, and it trains everyone to skim the output.
+
+### Lean engineering
+
+The most reliable code is the code that was never written, and the most common way an AI
+agent damages a small project is by adding structure it does not need: an interface with one
+implementation, a config file for a value that never changes, a framework for a job the
+standard library does in three lines. Each of those is something a future session must read,
+understand, and preserve.
+
+`AGENTS.md` carries the operating rule (take the highest working option: no change → existing
+project capability → platform/native → standard library → existing dependency → a little new
+code → a new dependency). The limit on it is equally firm: correctness, security, validation
+at trust boundaries, error handling that prevents data loss, accessibility, maintainability
+and anything explicitly requested are never traded away for a shorter diff.
+
+### Subagent economy
+
+Direct execution is the default. A subagent starts cold, re-derives context the primary
+already has, and cannot see state the primary is still changing — so fanning out for ordinary
+sequential work costs more and produces worse results than doing it directly.
+
+Two cases justify one: genuinely parallel work that doesn't depend on evolving shared state,
+and the one independent final review. Nothing else — not reading files, not searching the
+repo, not running tests, not writing docs. Subagents never spawn subagents.
+
+### Review timing
+
+The workflow is: implement → self-check → targeted verification → stabilise the branch →
+broader verification → **one** independent `code-reviewer` review → fix what's valid → open
+the PR. Re-review only if those fixes materially changed what was reviewed.
+
+Reviewing while the implementation is still moving wastes the review: the reviewer reads code
+that will not exist in an hour, and its findings arrive as noise.
+
+Risk tiers:
+
+| Tier | Examples | Independent review |
+|------|----------|--------------------|
+| Trivial | typo, small doc fix, cosmetic repair with a deterministic check | not required |
+| Normal | ordinary feature or fix | one, at the end |
+| High risk | auth, permissions, credentials, privacy, payments, destructive data operations, migrations, deployment, governance | required |
+
+The receipt gate (§3a) enforces the boundary between the first two automatically, so nobody
+has to argue about which tier a change is in.
 
 ---
 
 ## 3a. Automatic git & guardrails (enforcement)
 
 Git is hands-off. Whichever agent picks up the project runs the whole workflow itself — branch,
-commit, push, review, open PR, and merge when CI is green (`gh pr merge --squash --delete-branch`).
-PRs touching governance rules require human ratification.
+commit, push, review, open PR, and merge when CI is green (`gh pr merge --squash --delete-branch`
+on GitHub, `fj pr merge --squash --delete-branch` on Forgejo). PRs touching governance rules
+require human ratification.
 
 Written rules are only advice; an agent (or a tired human) forgets them. The rules that
 actually hold are the ones a machine enforces. This kit layers guardrails so that if one is
 bypassed, another still catches the problem ("defense in depth").
 
-**Git-level guardrails (apply to EVERY agent + manual commits — via `lefthook.yml`):**
-- **Branch guard** — refuses any commit made on `main`/`master`. Branch first.
-- **Secret scan on commit** — Gitleaks refuses any commit containing a key, token, or
-  password. This is the safety net behind §6.
-- Install both once with `lefthook install`.
+**Prefer the git level.** A rule enforced in `lefthook.yml` or a script protects Claude,
+Codex, Cursor, Antigravity and a human at a terminal, all at once. A rule enforced only in
+`.claude/` protects Claude. So anything that can cheaply live at the git level does — and
+what remains Claude-specific stays there because moving it would cost more complexity than it
+buys, not because nobody noticed.
 
-**Claude Code-specific guardrails (via `.claude/settings.json` hooks — convenience for Claude):**
-- **Git guard** — `git-guard.ps1` denies commit/push on `main` early, enforces review receipts on `gh pr create`, gates `gh pr merge` on green CI status, and blocks self-merging governance changes.
-- **Auto-commit on turn end** — `auto-commit.ps1` (Stop hook) commits and pushes any leftover
-  work so nothing is lost. Never touches `main`; the secret scan still gates its commits.
-- **Protected paths** — `protect-paths.ps1` blocks edits to sensitive files/folders (including `.claude/settings.json`).
-- Other agents (Codex, Cursor, Antigravity) rely on the git-level guardrails above plus the
-  rules they read from `AGENTS.md`; replicate any of these in their own hook systems if wanted.
+**Git-level gates (apply to EVERY agent + manual commits — via `lefthook.yml`):**
+
+| Gate | What it refuses |
+|------|-----------------|
+| `scripts/hooks/no-commit-on-main.sh` | any commit made on `main`/`master` |
+| `gitleaks protect --staged` | any commit containing a key, token or password (§6) |
+| `scripts/hooks/check-large-files.sh` | a newly added file over the size limit (default 2048 KB; change with `git config governance.maxFileKB <n>`) |
+| `scripts/hooks/check-lockfiles.sh` | nothing — it *warns* when a lockfile moved but its manifest didn't (§4) |
+
+Install once with `lefthook install`. Both `lefthook` and `gitleaks` must be present or the
+pipeline no-ops or fails.
+
+**Claude Code gates (via `.claude/settings.json` hooks):**
+
+- **`git-guard.ps1`** — one hook, six rules: refuses `--no-verify`, refuses commit/push on
+  `main` early, refuses shell redirection aimed at a governance file, requires a review
+  receipt before `gh pr create` / `fj pr create` when the branch changes code, gates
+  `gh pr merge` on green CI status, and refuses any merge of a PR that edits the rules.
+- **`protect-paths.ps1`** — denies Edit/Write to the governance files, the hooks, the CI
+  workflows and `.claude/settings.json`. It does **not** block lockfiles (§4).
+- **`auto-commit.ps1`** — Stop hook; commits and pushes leftover work so nothing is lost.
+  Never touches `main`; the secret scan still gates its commits.
+- **`.claude/agents/code-reviewer.md`** — the independent reviewer (Sonnet 5, high effort,
+  read-only). Deliberately the one permitted subagent.
+
+Other agents rely on the git-level gates plus the rules they read from `AGENTS.md`.
+
+**The review receipt, and what it can and cannot do.** Before a PR opens, `git-guard`
+requires `.claude/review/receipt.json` naming a verdict and a `codeDigest` — a SHA-256 of the
+branch diff restricted to the files that can actually change behaviour. Two consequences,
+both deliberate:
+
+- A branch touching only prose needs no receipt at all. The earlier version demanded one for
+  a README typo, which taught everyone to run a reviewer purely to generate a file.
+  "Prose" is decided by file TYPE -- `.md`, `.txt`, `.rst`, `WORKLOG`, `CHANGELOG`, and the
+  receipt itself -- never by folder. A draft of this exempted everything under `docs/`, which
+  meant a shell script called `docs/setup.sh` counted as prose and reached a PR with no review
+  at all. A folder name says nothing about what a file does.
+- Adding a WORKLOG entry after a clean review does not invalidate it; changing a line of code
+  does. The earlier version pinned the receipt to a commit SHA, so any commit at all forced a
+  re-review that could not find anything new.
+
+The receipt is checked at `pr create` **and again at `pr merge`**. Checking only at creation
+left a hole wide enough for the auto-commit hook to walk through: open the PR with a clean
+receipt, push three more commits of real code, merge. Merging is the irreversible act, so it
+is the one that must not be able to happen unreviewed.
+
+**Merge the branch you have checked out.** Every local check -- the receipt and the authority
+ceiling both -- reads your current branch. `gh pr merge 42` merges PR 42 on the remote no
+matter what is in front of you, so a perfectly valid receipt for the branch you are standing
+on would be used to wave through a PR nobody looked at. On GitHub the gate closes this: it
+compares the PR's head commit with your local HEAD and refuses a mismatch, and re-checks the
+authority ceiling against the PR's own file list. **On Forgejo it cannot** -- `fj` has no
+equivalent query, and V2 deliberately does not build a cross-host PR abstraction. So on
+Forgejo this is a rule you keep, not a gate that keeps you: check the branch out, then merge.
+
+Honest limit: this forces a review to *happen* and to be recorded against specific code. It
+cannot force the agent to act on what the review said, and an agent determined to write a
+fake receipt can. It is a tripwire, not a cage. The gates that genuinely cannot be talked
+around are the git-level ones.
+
+**The authority ceiling.** An agent may propose a rule change and argue for it; it may not
+ratify one. `git-guard` refuses to merge any PR touching `AGENTS.md`, `CLAUDE.md`,
+`GEMINI.md`, `REPO_RULES.md`, `lefthook.yml`, `.gitleaks.toml`, `.governance-version`, or
+anything under `.claude/`, `.cursor/`, `.github/workflows/` or `scripts/hooks/`. Without it,
+merge power is self-amplifying: an agent could merge the PR that widens its own permissions.
+The check reads the branch diff from local git -- so it holds on Forgejo, which this gate
+does not speak -- and on GitHub it ALSO reads the PR's own file list. Both, because each
+covers the other's blind spot: local git is blind when you merge a PR by number from a
+different branch (the diff it reads is empty, and an empty diff contains no governance
+files), and the API is blind on any host that isn't GitHub. It fails closed if it cannot
+determine what the branch changed, and refuses outright to merge from a branch that is not
+the PR's.
 
 **Optional:** a CI workflow re-runs tests and the secret scan on every push, catching anything
 that slipped past local checks.
@@ -158,12 +302,49 @@ fix the underlying cause (branch first, remove the secret, etc.).
 
 ---
 
+## 3b. Remotes: one authoritative, the rest mirrors
+
+A repo may live in more than one place. One remote is **authoritative** — the copy that
+decides what is true. Any others are **mirrors**, which must end up reflecting completed work
+so the owner and any external tool looking at them see the real state.
+
+<Fill in for this project. A common setup: `origin` → a self-hosted Forgejo server
+(authoritative), `github` → a GitHub mirror.>
+
+Rules:
+
+- Push completed work to **every** remote. The owner should never have to push twice.
+- The default branches must converge on the same commit.
+- **Never force-push to make them equal.** Equality obtained by discarding somebody's commits
+  is not synchronisation.
+- If the remotes have genuinely diverged — each holding commits the other doesn't — stop and
+  report it in plain language. Do not pick a side silently.
+- `sync-remotes.ps1` does the checking and the safe fast-forward pushes. Run it with `-DryRun`
+  first to see what it would do; it refuses divergence and never creates a commit.
+
+---
+
 ## 4. Dependencies
 
 - Pin versions for reproducibility (`==`, lockfiles, etc.).
-- Adding a dependency requires a one-line justification in the PR. Remove anything unused.
+- Adding a dependency requires a one-line justification in the PR. Take it only after the
+  lean-engineering ladder (§3a) has run out of higher options. Remove anything unused.
 - State any hard constraints here: <e.g. "no cloud SDKs", "no telemetry", "local-only",
   "stdlib only", "no new outbound network calls">.
+
+### Lockfiles
+
+- **Never hand-edit a generated lockfile** (`package-lock.json`, `pnpm-lock.yaml`,
+  `poetry.lock`, `uv.lock`, `Cargo.lock`, `go.sum`, …). Change the manifest and let the
+  package manager regenerate it, in the same commit.
+- A legitimate dependency change *will* move the lockfile, and that is fine. An earlier
+  version of these rules blocked every lockfile edit outright, which also blocked the
+  legitimate case — leaving the agent no way forward except routing around a guardrail,
+  which is exactly the habit the guardrails exist to break.
+- `scripts/hooks/check-lockfiles.sh` warns (does not block) when a lockfile changed but its
+  manifest did not. That shape means a hand-edit, a stray `npm install`, or a dependency
+  swapped in without a manifest change — worth a second look, not worth stopping the commit.
+- If the warning fires and the change is intended, say so in the commit body.
 
 ---
 
@@ -196,7 +377,38 @@ fix the underlying cause (branch first, remove the secret, etc.).
 
 ---
 
-## 8. Releases / tags (optional)
+## 7a. WORKLOG — project memory, not a toll booth
+
+`WORKLOG.md` is what the next session reads to find out what happened. Keep it useful by
+keeping it thin:
+
+- Write an entry when work **materially advances** or reaches a checkpoint another session
+  would need to know about. Newest at the top, dated.
+- Keep entries short and link to the PR, spec or commit rather than reproducing them.
+- **Don't** write an entry for a trivial change, and **don't** make a commit purely to add
+  one. An earlier version of this kit had a CI job that failed any PR not touching
+  `WORKLOG.md`. Predictably, that produced a line of filler prose on every typo fix — noise
+  in the file that is supposed to be the signal — and taught everyone to write the entry to
+  satisfy the robot rather than to inform the next session. The job now checks only PRs that
+  actually change code, and even then it warns rather than failing.
+
+---
+
+## 8. Governance version & updates
+
+`.governance-version` records which generation of the governance kit this repo has. Read it
+to answer "what rules generation is this project on?" without asking an AI to guess from the
+files.
+
+To take a newer generation of the machine gates into this repo, run the kit's
+`update-governance.ps1` with `-DryRun` first. It only replaces **template-owned gate files**
+that are still byte-identical to a version the kit knows it shipped. Anything customised is
+left alone and reported, and it never touches `PRD.md`, `WORKLOG.md`, your filled-in
+`AGENTS.md` / `REPO_RULES.md`, or any project source.
+
+---
+
+## 9. Releases / tags (optional)
 
 - Tag working milestones with semantic versions: `v0.1.0`, `v0.2.0`.
 - A tagged commit must satisfy <your definition of "shippable">.
