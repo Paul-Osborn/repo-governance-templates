@@ -26,3 +26,4 @@ When it applies, BEFORE writing any project code:
    remote, get a reviewer receipt, and merge once CI is green (gh pr merge --squash --delete-branch).
 
 Then proceed with the user's actual task, governed by AGENTS.md.
+
