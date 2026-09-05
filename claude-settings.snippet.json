@@ -1,5 +1,5 @@
 {
-  "_comment": "Merge into your repo's .claude/settings.json. 'permissions.allow' lets Claude run the git/PR commands without prompting you, so git is hands-off. The hooks enforce the rules regardless: git-guard and protect-paths DENY bad actions (deny overrides allow), and auto-commit saves leftover work when a turn ends. Merging a reviewed, green PR into main is allowed via gh pr merge.",
+  "_comment": "Merge into your repo's .claude/settings.json. 'permissions.allow' lets the agent run the git/PR commands without prompting you, so git is hands-off. The hooks enforce the rules regardless: git-guard and protect-paths DENY bad actions (deny overrides allow), and auto-commit saves leftover work when a turn ends. Merging a reviewed, green PR into main is allowed; merging a PR that edits the rules is not.",
   "permissions": {
     "allow": [
       "Bash(git add:*)",
@@ -25,7 +25,16 @@
       "Bash(gh pr comment:*)",
       "Bash(gh run list:*)",
       "Bash(gh run view:*)",
-      "Bash(lefthook:*)"
+      "Bash(lefthook:*)",
+      "Bash(git remote:*)",
+      "Bash(git merge-base:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(git show:*)",
+      "Bash(fj pr:*)",
+      "Bash(fj issue:*)",
+      "Bash(fj repo:*)",
+      "Bash(fj path:*)",
+      "Bash(gitleaks:*)"
     ]
   },
   "hooks": {

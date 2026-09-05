@@ -1,0 +1,88 @@
+﻿{
+    "governanceVersion":  "2.0.0",
+    "generated":  "2026-09-05",
+    "note":  "Files this kit OWNS and may safely replace when they are unmodified. Everything else in a governed project belongs to the project. knownHashes are content hashes of earlier shipped versions (line endings normalised), so an untouched older gate is recognised as upgradeable rather than customised.",
+    "files":  [
+                  {
+                      "template":  "git-guard.template.ps1",
+                      "dest":  ".claude/hooks/git-guard.ps1",
+                      "note":  "All git/PR policy in one PreToolUse hook.",
+                      "sha256":  "b87fadd23dea73ae52c9fb8c63cfdcc405b2e6fd2d5d885322aa549abdb9e494",
+                      "knownHashes":  [
+                                          "1ff8ccb210b3ea501f2c0ec34fbc451d05a3681cae9828ed31cedf47070ab8a0"
+                                      ]
+                  },
+                  {
+                      "template":  "protect-paths.template.ps1",
+                      "dest":  ".claude/hooks/protect-paths.ps1",
+                      "note":  "Denies edits to the rules and gates. Projects often add their own paths here.",
+                      "sha256":  "56c65a8a3e51b362d5027add520f89ba1d6f125fcaa8c5e2bc47bb2ab344e380",
+                      "knownHashes":  [
+                                          "da0f07f58a3d129dacefd417204abc8a2abf63cc92a60a6c278217f388d232d3"
+                                      ]
+                  },
+                  {
+                      "template":  "auto-commit.template.ps1",
+                      "dest":  ".claude/hooks/auto-commit.ps1",
+                      "note":  "Stop hook; saves leftover work to every remote.",
+                      "sha256":  "6a3455625bace70a13463675b8c5eac32cb4f28f314bf1019137f203410cb1ba",
+                      "knownHashes":  [
+                                          "351803cc7e95777fe458073a74309eeff8a645eb54eb1f0e6296c422992484d7"
+                                      ]
+                  },
+                  {
+                      "template":  "code-reviewer.template.md",
+                      "dest":  ".claude/agents/code-reviewer.md",
+                      "note":  "The one permitted subagent: independent final review.",
+                      "sha256":  "68122f585de6d390ffe3a94a60cfdfd08f2b34561fda1c643d16f92c9b1ef985",
+                      "knownHashes":  [
+
+                                      ]
+                  },
+                  {
+                      "template":  "no-commit-on-main.template.sh",
+                      "dest":  "scripts/hooks/no-commit-on-main.sh",
+                      "note":  "Branch guard, git level, every agent.",
+                      "sha256":  "7f4395b2bfa9bb6836bec6b3eac9ae4b539787c6feeb538a6d76badf94bb4059",
+                      "knownHashes":  [
+
+                                      ]
+                  },
+                  {
+                      "template":  "check-large-files.template.sh",
+                      "dest":  "scripts/hooks/check-large-files.sh",
+                      "note":  "Large-file gate, git level, every agent.",
+                      "sha256":  "6b2a58cb0133253048bde866f24559c4043c6528ffdd3909299aa157d912b60e",
+                      "knownHashes":  [
+
+                                      ]
+                  },
+                  {
+                      "template":  "check-lockfiles.template.sh",
+                      "dest":  "scripts/hooks/check-lockfiles.sh",
+                      "note":  "Lockfile sanity warning, git level.",
+                      "sha256":  "6ecf1112ab4e18ef12d7c9e82db146b428be3f33146828e4d272605488e0bb80",
+                      "knownHashes":  [
+
+                                      ]
+                  },
+                  {
+                      "template":  "lefthook.template.yml",
+                      "dest":  "lefthook.yml",
+                      "note":  "Wires the git-level gates. Projects add their own lint/test commands here.",
+                      "sha256":  "27f845168cab725dcf260dc7d93a7174e6667321077230941b43c7fd05730200",
+                      "knownHashes":  [
+                                          "2d67412530b99c55d2de85003d3a3bffd380c1d4142c061c4194f424f6c76180"
+                                      ]
+                  },
+                  {
+                      "template":  "gitattributes.template",
+                      "dest":  ".gitattributes",
+                      "note":  "Keeps the sh gates LF-only so they run on Windows.",
+                      "sha256":  "ad5d059444cb641a51c27b153660fb80060eace23a1f28e0f728f8c5c20d0f1e",
+                      "knownHashes":  [
+
+                                      ]
+                  }
+              ]
+}
