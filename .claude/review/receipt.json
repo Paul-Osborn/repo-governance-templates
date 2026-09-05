@@ -1,0 +1,8 @@
+﻿{
+    "sha":  "608e3bbf9f3294bf946c1c946422f099d505525e",
+    "codeDigest":  "f0db88386d2137de3c6810dd7ac6e6888028c099ed1f29679aff18f3c18c152a",
+    "reviewer":  "code-reviewer",
+    "verdict":  "PASS",
+    "reviewedAt":  "2026-09-05T14:25:38.6263862-05:00",
+    "findings":  "1. Checked Verify-ServerRouter.ps1 exit code in Deploy-ServerRouter.ps1 before finally cleanup. 2. Added support for both local and server-side snapshot locations in Rollback-ServerRouter.ps1 and documented in README.md. 3. Synchronized cursor-user-rules.txt with canonical server-rules.md."
+}
