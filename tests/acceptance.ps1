@@ -596,6 +596,45 @@ $manifest = Get-Content (Join-Path $kit 'governance-manifest.json') -Raw | Conve
 $stale = @($manifest.files | Where-Object { -not (Test-Path (Join-Path $kit $_.template)) })
 Check 'L6 every manifest entry points at a real template' ($stale.Count -eq 0) "$($stale.template -join ', ')"
 
+
+# ===========================================================================
+Section 'M. GLOBAL RULES UPDATER'
+# ===========================================================================
+# Runs against a SANDBOX home directory. It must never touch the real one.
+$globalTool = Join-Path $kit 'update-global-rules.ps1'
+$sandboxHome = Join-Path $WorkDir 'fake-home'
+New-Item -ItemType Directory -Path (Join-Path $sandboxHome '.claude') -Force | Out-Null
+$personal = "# My own notes" + "`n`n" + "A personal instruction that must survive." + "`n"
+Set-Content (Join-Path $sandboxHome '.claude/CLAUDE.md') $personal
+
+$realHome = $HOME
+try {
+    Set-Variable -Name HOME -Value $sandboxHome -Scope Global -Force
+    $m1 = & $globalTool -Agent claude -DryRun *>&1 | Out-String
+    $m2 = & $globalTool -Agent claude *>&1 | Out-String
+    $m3 = & $globalTool -Agent claude *>&1 | Out-String
+    $m4 = & $globalTool -Agent claude -DryRun *>&1 | Out-String
+} finally {
+    Set-Variable -Name HOME -Value $realHome -Scope Global -Force
+}
+
+$globalFile = Join-Path $sandboxHome '.claude/CLAUDE.md'
+$after = Get-Content $globalFile -Raw
+Check 'M1 DryRun reports the append without doing it' ($m1 -match 'nothing written') $m1
+Check 'M2 the update applies'                    ($m2 -match 'append the managed block') $m2
+Check 'M3 the personal content survives'         ($after -match 'A personal instruction that must survive')
+Check 'M4 the governance block is installed'     ($after -match 'BEGIN repo-governance')
+Check 'M5 the server rules came with it'         ($after -match 'bare address is the portal page')
+Check 'M6 a second run is a clean no-op'         ($m3 -match 'already current') $m3
+Check 'M7 DryRun after updating reports current' ($m4 -match 'already current') $m4
+Check 'M8 exactly one managed block, not a pile' `
+      ((([regex]::Matches($after, 'BEGIN repo-governance')).Count) -eq 1)
+Check 'M9 a backup of the original was made' `
+      (@(Get-ChildItem (Join-Path $sandboxHome '.claude') -Filter 'CLAUDE.md.bak-*').Count -gt 0)
+Check 'M10 it says Cursor must be done by hand'  ($m2 -match 'Cursor stores its user rules')
+Check 'M11 the real home directory was untouched' `
+      ($realHome -eq $HOME -and $realHome -notmatch 'fake-home')
+
 } finally {
     Set-Location $startDir
     Write-Host ""

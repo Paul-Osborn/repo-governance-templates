@@ -22,6 +22,27 @@ plain files you can write; Cursor's is set in its UI.
 | Cursor | Settings → Rules → **User Rules** | Paste `cursor-user-rules.txt` (Cursor stores user rules in-app, not as a file). |
 | Grok | **not yet wired up** | `~/.grokbot` holds runtime state only, no instruction file. If Grok reads a project's `AGENTS.md`, the per-project copy covers it; the global rules are NOT reaching it. |
 
+## Updating them later (V2)
+
+Don't copy these files over the installed ones by hand -- the installed copy usually also
+holds personal notes you do not want to lose. Use the updater instead:
+
+```powershell
+& "$env:REPO_GOVERNANCE_HOME\update-global-rules.ps1" -DryRun
+```
+
+then the same command without `-DryRun`. It writes the governance content between two
+markers and replaces only what is between them:
+
+```
+<!-- BEGIN repo-governance (managed) -->
+<!-- END repo-governance (managed) -->
+```
+
+Anything outside those markers is never read, moved or changed, and the file is backed up
+before it is written. Running it twice does nothing the second time. Cursor still has to be
+pasted in by hand, because it keeps user rules in the app rather than in a file.
+
 ## Notes
 
 - **It activates only after `new-governed-repo.ps1` exists at `$env:REPO_GOVERNANCE_HOME`** —
