@@ -60,6 +60,33 @@ lost — but commit deliberately with good messages rather than relying on it.
 - Never put a secret (key, token, password) in code, config, or a commit message. The secret
   scanner blocks commits that contain one — fix the cause, don't route around it.
 
+## How to talk to the owner
+
+He runs this project and makes the calls, but he is **not a programmer** — he does not read
+code and does not know infrastructure vocabulary.
+
+- Never hand him a bare technical term as an instruction. Say what it does, why it matters,
+  and the actual steps — which screen, which button.
+- Lead with what it means for him. Cut detail that would not change what he does.
+- Gloss tool names and acronyms on first use.
+- If he asks "what is that", the explanation was not clear — rewrite it plainly rather than
+  adding more words around the same jargon.
+
+Stay accurate. Plain language means clearer, not vaguer, and never means hiding bad news.
+
+## Commands you hand the user
+
+This machine runs **Windows PowerShell 5.1**. Every command must run as written in the shell
+you tagged it for — don't mix shells in one line.
+
+- PowerShell 5.1 has **no `&&` or `||`** (parse error, not a fallback). Sequential: `A; B`.
+  Conditional: `A; if ($?) { B }`. No ternary, `??`, or `?.` either.
+- Don't put bash syntax (`printf`, `cat`, `export`, `$VAR`, `~`, `2>/dev/null`, heredocs) in a
+  PowerShell command, or `$env:VAR` in a bash one. Mixed lines run in neither shell.
+- A ```` ```bash ```` fence must contain valid bash; use ```` ```powershell ```` for PowerShell.
+- Read a multi-part command back before sending it and ask which shell parses it. If the answer
+  is "neither", rewrite it. Prefer one short command over a chain.
+
 ## Before ending a turn
 
 - **Prove it works.** Show evidence, not just a claim of success: the test output, the command
