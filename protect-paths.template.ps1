@@ -1,10 +1,14 @@
 # PreToolUse hook: block edits/writes to protected files and folders.
 # Stops an agent from touching files that should only change deliberately
-# (lockfiles, generated code, CI config, this hook itself, etc.).
+# (the governance gates, CI config, this hook itself, etc.).
 #
 # Install: copy to `.claude/hooks/protect-paths.ps1`, then wire it up in
 # `.claude/settings.json` (see claude-settings.snippet.json in this template set).
 # Edit the $protected list below for your project.
+#
+# Scope note: this blocks the AGENT's Edit/Write tools. It is a convenience layer for
+# Claude Code, not a security boundary -- the gates that hold for every agent and for
+# manual commits are the lefthook ones. Deny here means "not by accident".
 
 $ErrorActionPreference = 'Stop'
 
@@ -24,11 +28,20 @@ $protected = @(
     # Replace/uncomment for your project's test directory (e.g. '(^|[\\/])tests[\\/]', '(^|[\\/])MyProject\.Tests[\\/]')
     # '(^|[\\/])tests[\\/]',
 
-    'package-lock\.json$',
-    'pnpm-lock\.yaml$',
-    'poetry\.lock$',
-    'lefthook\.yml$',
-    '\.gitleaks\.toml$'
+    # Governance gates. These define what "safe" means, so the agent must not be able to
+    # edit them; a rule change is a PR for the human to ratify, not a quiet edit.
+    '(^|[\\/])lefthook\.yml$',
+    '(^|[\\/])\.gitleaks\.toml$',
+    '(^|[\\/])scripts[\\/]hooks[\\/]',
+    '(^|[\\/])\.claude[\\/]agents[\\/]',
+    '(^|[\\/])\.governance-version$'
+
+    # NOT protected in V2: dependency lockfiles (package-lock.json, poetry.lock, ...).
+    # V1 blocked them outright, which also blocked the legitimate case -- you approve a
+    # dependency, the package manager regenerates the lockfile, and the agent hits a wall
+    # it can only clear by routing around a guardrail. The rule now lives where it belongs:
+    # AGENTS.md says never hand-edit a lockfile (regenerate it through the package manager),
+    # and scripts/hooks/check-lockfiles.sh warns on lockfile-only churn.
 )
 
 try {
