@@ -4,11 +4,16 @@ alwaysApply: true
 ---
 
 Before touching any code, open and follow `AGENTS.md` in the repo root. It is the single
-source of truth for this project: the git workflow (branch → commit → push → review → open PR →
-merge green PR), plan-before-code, prove-it-works, and the guardrails.
+source of truth for this project: autonomy boundaries (decide, don't ask), the git workflow
+(branch → commit → push to every remote → review → open PR → merge green PR), one cohesive
+deliverable per branch, lean engineering (build the smallest complete solution), subagent
+economy, verification, and the guardrails.
 
 Git is hands-off — run that workflow yourself without asking, and merge when CI is green.
 
+The gates in `lefthook.yml` (branch guard, secret scan, large-file limit) apply to you the
+same as to every other agent. The `.claude/` hooks do not, so `AGENTS.md` is what stands
+between you and the mistakes they prevent.
+
 > Copy this file to `.cursor/rules/agents.mdc`. (Cursor also reads `AGENTS.md` at the repo root
-> natively; this rule guarantees it's always applied. Add more `.cursor/rules/*.mdc` files for
-> Cursor-specific scoped rules if you ever need them.)
+> natively; this rule guarantees it's always applied.)
