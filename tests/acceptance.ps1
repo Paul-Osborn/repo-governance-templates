@@ -277,6 +277,19 @@ RunGit switch -q main | Out-Null
 $rWrongBranch = GuardReason 'gh pr merge 1 --squash' $guard
 Check 'F6 merging from the wrong branch is refused, not silently allowed' `
       ($rWrongBranch -match 'not what is checked out') $rWrongBranch
+# Merging PR N by number from a branch that is NOT that PR cannot be exercised here: it needs
+# a live GitHub PR to read a head commit from, and this repo has no remote. These are STATIC
+# checks that the wiring exists -- they prove the code is present and would refuse, not that
+# it refused. Labelled so nobody mistakes them for behavioural proof.
+$guardSrc = Get-Content $guard -Raw
+Check 'F6a [static] the guard asks GitHub for the PR head commit' ($guardSrc -match 'headRefOid')
+Check 'F6b [static] and refuses when it differs from local HEAD' `
+      ($guardSrc -match 'is not what you have checked out')
+Check 'F6c [static] a missing API file list fails closed, not open' `
+      ($guardSrc -match "PSObject.Properties\['files'\]")
+Check 'F6d the docs admit this is a rule, not a gate, on Forgejo' `
+      ((Get-Content (Join-Path $kit 'REPO_RULES.template.md') -Raw) -match 'On Forgejo it cannot')
+
 
 RunGit switch -q -c chore/gov-change | Out-Null
 Add-Content 'AGENTS.md' "`n- an extra rule the agent gave itself"

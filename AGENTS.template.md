@@ -58,9 +58,11 @@ The commands are pre-allowed. Never ask permission for any of this.
    them — `sync-remotes.ps1` does it in one step. One remote is authoritative; the rest are
    mirrors that must reflect finished work.
 4. **Review, then open the PR.** See "Review" below.
-5. **Merge when green.** `gh pr merge --squash --delete-branch` (GitHub) once CI passes.
-   Never merge red. Never `--admin`. **A PR touching governance/rule files is the owner's to
-   merge — post the link and stop.**
+5. **Merge when green**, and merge the branch you have checked out — `gh pr merge --squash
+   --delete-branch`, no PR number. The review and authority checks read your local branch, so
+   merging a *different* PR by number would approve code nothing checked. Never merge red.
+   Never `--admin`. **A PR touching governance/rule files is the owner's to merge — post the
+   link and stop.**
 6. **No remote?** Branch and commit locally; skip push and PR.
 
 A safety net auto-commits and pushes leftovers when a turn ends, so work is never lost — but

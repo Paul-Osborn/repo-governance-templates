@@ -267,6 +267,15 @@ left a hole wide enough for the auto-commit hook to walk through: open the PR wi
 receipt, push three more commits of real code, merge. Merging is the irreversible act, so it
 is the one that must not be able to happen unreviewed.
 
+**Merge the branch you have checked out.** Every local check -- the receipt and the authority
+ceiling both -- reads your current branch. `gh pr merge 42` merges PR 42 on the remote no
+matter what is in front of you, so a perfectly valid receipt for the branch you are standing
+on would be used to wave through a PR nobody looked at. On GitHub the gate closes this: it
+compares the PR's head commit with your local HEAD and refuses a mismatch, and re-checks the
+authority ceiling against the PR's own file list. **On Forgejo it cannot** -- `fj` has no
+equivalent query, and V2 deliberately does not build a cross-host PR abstraction. So on
+Forgejo this is a rule you keep, not a gate that keeps you: check the branch out, then merge.
+
 Honest limit: this forces a review to *happen* and to be recorded against specific code. It
 cannot force the agent to act on what the review said, and an agent determined to write a
 fake receipt can. It is a tripwire, not a cage. The gates that genuinely cannot be talked

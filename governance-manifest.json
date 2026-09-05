@@ -7,7 +7,7 @@
                       "template":  "git-guard.template.ps1",
                       "dest":  ".claude/hooks/git-guard.ps1",
                       "note":  "All git/PR policy in one PreToolUse hook.",
-                      "sha256":  "9d40fd9dd626729aa915f90b206ac70ae1a0bc0a5c535ea668c1929cc5501cf4",
+                      "sha256":  "8522e287d738b7b86cfd97b4fc80e5756cae59eebc1883179bb6d2b7bc9fc723",
                       "knownHashes":  [
                                           "1ff8ccb210b3ea501f2c0ec34fbc451d05a3681cae9828ed31cedf47070ab8a0"
                                       ]

@@ -22,10 +22,19 @@
 # refused. Merging is the irreversible one; "I couldn't tell" must not mean "go ahead".
 #
 # HOSTS: `gh` (GitHub) and `fj` (Forgejo) are both handled. The receipt and authority rules
-# are computed from local git, so they work on any host; on GitHub the authority ceiling ALSO
-# reads the PR's own file list, which is the half that is right when you merge a PR by number
-# from some other branch. The green-CI gate needs the host API and is GitHub-only; on Forgejo
-# the local gates plus the authority ceiling apply.
+# are computed from local git, so they work on any host.
+#
+# Everything local depends on ONE assumption: that the branch checked out here is the PR being
+# merged. `gh pr merge 42` breaks that assumption -- it merges PR 42 on the remote whatever is
+# in front of you, so a receipt and a clean authority check for branch A would be used to wave
+# through PR 42. On GitHub the gate closes this: it compares the PR's head commit with local
+# HEAD and refuses a mismatch, and it re-runs the authority ceiling against the PR's own file
+# list from the API.
+#
+# On Forgejo it cannot. `fj` has no equivalent query and V2 deliberately does not build a
+# cross-host PR abstraction, so `fj pr merge <n>` run from a branch that is NOT that PR's is
+# checked against the wrong branch. The mitigation is a rule, not code: merge the branch you
+# have checked out. Same for the green-CI gate, which is GitHub-only.
 
 $ErrorActionPreference = 'Stop'
 
@@ -103,7 +112,7 @@ function Test-Exempt([string]$path) {
     if (Test-ReviewEvidence $path) { return $true }
     if (Test-Governance $path) { return $false }
     if ($path -match '\.(md|markdown|txt|rst|adoc)$') { return $true }
-    if ($path -match '(^|/)(WORKLOG|CHANGELOG|CHANGES|NOTICE)$') { return $true }
+    if ($path -match '(^|/)(WORKLOG|CHANGELOG|CHANGES|NOTICE|LICENCE|LICENSE|AUTHORS|CONTRIBUTORS|README)$') { return $true }
     return $false
 }
 
@@ -437,7 +446,7 @@ you may not ratify one. Post the PR link and let the owner decide.
 
     $viewArgs = @('pr', 'view')
     if ($prRef) { $viewArgs += $prRef }
-    $viewArgs += @('--json', 'statusCheckRollup,files,number,title')
+    $viewArgs += @('--json', 'statusCheckRollup,files,number,title,headRefOid,headRefName')
 
     $info = $null
     try {
@@ -457,8 +466,50 @@ if the gate can't see the PR, nobody has confirmed the checks are green.
 "@
     }
 
+    # Is the PR being merged the branch that everything above just validated?
+    #
+    # `gh pr merge 42` merges PR 42 on the remote, whatever is checked out here. So every
+    # local check -- the authority ceiling AND the review receipt -- may have inspected a
+    # completely different branch and passed on it. A receipt that is perfectly valid for
+    # branch A says nothing whatever about PR 42. Refuse unless they are the same commit.
+    if ($prRef) {
+        $prHead = [string]$info.headRefOid
+        $localHead = (git rev-parse HEAD 2>$null | Out-String).Trim()
+        if (-not $prHead -or -not $localHead -or $prHead -ne $localHead) {
+            Deny @"
+Refused: PR #$($info.number) is not what you have checked out, so nothing that was just
+checked applies to it.
+
+  PR #$($info.number) head: $(if ($prHead) { $prHead.Substring(0, [Math]::Min(12, $prHead.Length)) } else { '(unknown)' })  (branch '$($info.headRefName)')
+  checked out here:  $(if ($localHead) { $localHead.Substring(0, [Math]::Min(12, $localHead.Length)) } else { '(unknown)' })
+
+The review receipt and the authority check both read your LOCAL branch. Merging a different
+PR by number would mean approving code that was never looked at. Check the PR out first:
+
+  git switch $($info.headRefName)
+  git pull
+  gh pr merge --squash --delete-branch
+
+(Without a number, `gh pr merge` targets the branch you are on, which is the branch that was
+actually checked.)
+"@
+        }
+    }
+
     # The authority ceiling again, now against the PR's OWN file list rather than whatever is
     # checked out. This is the half that is right when the two disagree.
+    #
+    # FAIL CLOSED on a missing field: `@($null)` yields a one-element array of $null, which
+    # would walk this loop without finding anything and read as "no governance files" -- a
+    # silent pass on the one check that must never fail open.
+    if (-not $info.PSObject.Properties['files']) {
+        Deny @"
+Refused: GitHub returned no file list for PR #$($info.number), so the authority ceiling can't
+tell whether this PR changes the rules.
+
+That is not a "probably fine". Check `gh pr view $($info.number) --json files` and try again.
+"@
+    }
     $apiTouched = @()
     foreach ($f in @($info.files)) {
         $p = [string]$f.path
