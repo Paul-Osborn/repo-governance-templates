@@ -163,9 +163,19 @@ if ($isCommitOrPush) {
     elseif ($cmd -match "git\s+-C\s+'([^']+)'") { $repoPath = $Matches[1] }
     elseif ($cmd -match 'git\s+-C\s+(\S+)') { $repoPath = $Matches[1] }
 
+    # `symbolic-ref --short -q HEAD` FIRST, because it is the only one that works before the
+    # repo's first commit. `rev-parse --abbrev-ref HEAD` answers "HEAD" on an unborn branch,
+    # which used to let the very first commit of a brand-new project land straight on main --
+    # the one moment a new repo most needs the guard. Falls back to rev-parse for a detached
+    # HEAD, where symbolic-ref legitimately has no answer.
     try {
-        if ($repoPath) { $branch = (git -C $repoPath rev-parse --abbrev-ref HEAD 2>$null) }
-        else { $branch = (git rev-parse --abbrev-ref HEAD 2>$null) }
+        if ($repoPath) {
+            $branch = (git -C $repoPath symbolic-ref --short -q HEAD 2>$null)
+            if (-not ($branch | Out-String).Trim()) { $branch = (git -C $repoPath rev-parse --abbrev-ref HEAD 2>$null) }
+        } else {
+            $branch = (git symbolic-ref --short -q HEAD 2>$null)
+            if (-not ($branch | Out-String).Trim()) { $branch = (git rev-parse --abbrev-ref HEAD 2>$null) }
+        }
     } catch {
         exit 0  # not a git repo / git unavailable -- stay out of the way
     }

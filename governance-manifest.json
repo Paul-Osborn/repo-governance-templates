@@ -1,13 +1,13 @@
 ﻿{
     "governanceVersion":  "2.0.0",
     "generated":  "2026-09-05",
-    "note":  "Files this kit OWNS and may safely replace when they are unmodified. Everything else in a governed project belongs to the project. knownHashes are content hashes of earlier shipped versions (line endings normalised), so an untouched older gate is recognised as upgradeable rather than customised.",
+    "note":  "Files this kit OWNS and may safely replace when they are unmodified. Everything else in a governed project belongs to the project. knownHashes are content hashes of earlier shipped versions (line endings normalised), so an untouched older gate is recognised as upgradeable rather than customised. Regenerate with: update-governance.ps1 -RebuildManifest",
     "files":  [
                   {
                       "template":  "git-guard.template.ps1",
                       "dest":  ".claude/hooks/git-guard.ps1",
                       "note":  "All git/PR policy in one PreToolUse hook.",
-                      "sha256":  "b87fadd23dea73ae52c9fb8c63cfdcc405b2e6fd2d5d885322aa549abdb9e494",
+                      "sha256":  "770e328c250cf8b387b4bda7e9cd7b2af386f59901b418590676ac92859126a9",
                       "knownHashes":  [
                                           "1ff8ccb210b3ea501f2c0ec34fbc451d05a3681cae9828ed31cedf47070ab8a0"
                                       ]

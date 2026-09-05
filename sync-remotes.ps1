@@ -50,28 +50,35 @@ $root = if ([System.IO.Path]::IsPathRooted($Repo)) { $Repo } else { Join-Path (G
 $root = [System.IO.Path]::GetFullPath($root)
 if (-not (Test-Path (Join-Path $root '.git'))) { throw "Not a git repository: $root" }
 
+# Resolve the git EXECUTABLE once, explicitly. Two reasons, both learned the hard way:
+#   * a PowerShell function is matched case-insensitively, so a helper called `Git` that
+#     calls `git` calls ITSELF -- the script dies with a call-depth overflow;
+#   * a user's $PROFILE may define its own `git` function or alias, which would otherwise
+#     be what this script ends up running on their machine.
+$gitExe = (Get-Command git -CommandType Application -ErrorAction Stop | Select-Object -First 1).Source
+
 # git writes progress and hints to stderr even when nothing is wrong. Under
 # $ErrorActionPreference = 'Stop', PowerShell 5.1 turns a redirected native stderr line into
 # a terminating NativeCommandError -- so a perfectly successful `git fetch` would blow up.
 # Every call site checks $LASTEXITCODE explicitly instead.
-function Git {
+function Invoke-Git {
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    try { & git -C $root @args } finally { $ErrorActionPreference = $prev }
+    try { & $gitExe -C $root @args } finally { $ErrorActionPreference = $prev }
 }
 
 function Rev([string]$ref) {
-    $r = (Git rev-parse --verify --quiet "$ref^{commit}" 2>$null | Out-String).Trim()
+    $r = (Invoke-Git rev-parse --verify --quiet "$ref^{commit}" 2>$null | Out-String).Trim()
     if ($r) { return $r } else { return $null }
 }
 
 # Is $a an ancestor of $b? (i.e. b can fast-forward to include a)
 function Test-Ancestor([string]$a, [string]$b) {
-    Git merge-base --is-ancestor $a $b 2>$null | Out-Null
+    Invoke-Git merge-base --is-ancestor $a $b 2>$null | Out-Null
     return ($LASTEXITCODE -eq 0)
 }
 
-$remotes = @(Git remote | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$remotes = @(Invoke-Git remote | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 if ($remotes.Count -eq 0) {
     Write-Host "No remotes configured. Nothing to synchronise." -ForegroundColor Yellow
     exit 0
@@ -81,7 +88,7 @@ if ($remotes.Count -eq 0) {
 $authoritative = if ($remotes -contains 'origin') { 'origin' } else { $remotes[0] }
 
 if (-not $Branch) {
-    $head = (Git symbolic-ref --short -q "refs/remotes/$authoritative/HEAD" 2>$null | Out-String).Trim()
+    $head = (Invoke-Git symbolic-ref --short -q "refs/remotes/$authoritative/HEAD" 2>$null | Out-String).Trim()
     if ($head) { $Branch = $head -replace "^$([regex]::Escape($authoritative))/", '' }
     if (-not $Branch) { $Branch = if (Rev "refs/remotes/$authoritative/main") { 'main' } else { 'master' } }
 }
@@ -97,7 +104,7 @@ Write-Host ""
 Write-Host "Fetching..." -ForegroundColor DarkGray
 $unreachable = @()
 foreach ($r in $remotes) {
-    Git fetch $r --prune --quiet 2>$null | Out-Null
+    Invoke-Git fetch $r --prune --quiet 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { $unreachable += $r }
 }
 if ($unreachable.Count -gt 0) {
@@ -196,25 +203,25 @@ if ($DryRun) {
 $failed = @()
 foreach ($c in $behind) {
     if ($c.IsLocal) {
-        $currentBranch = (Git rev-parse --abbrev-ref HEAD | Out-String).Trim()
+        $currentBranch = (Invoke-Git rev-parse --abbrev-ref HEAD | Out-String).Trim()
         if ($currentBranch -eq $Branch) {
-            $dirty = (Git status --porcelain | Out-String).Trim()
+            $dirty = (Invoke-Git status --porcelain | Out-String).Trim()
             if ($dirty) {
                 Write-Host "  skipped local: '$Branch' is checked out and has uncommitted changes." -ForegroundColor Yellow
                 Write-Host "                 Commit or stash them, then run this again." -ForegroundColor Yellow
                 continue
             }
-            Git merge --ff-only $newest.Sha --quiet 2>$null | Out-Null
+            Invoke-Git merge --ff-only $newest.Sha --quiet 2>$null | Out-Null
         } else {
             # Not checked out: move the ref directly. Safe, and leaves the working tree alone.
-            Git update-ref "refs/heads/$Branch" $newest.Sha 2>$null | Out-Null
+            Invoke-Git update-ref "refs/heads/$Branch" $newest.Sha 2>$null | Out-Null
         }
         if ($LASTEXITCODE -eq 0) { Write-Host "  local updated" -ForegroundColor Green }
         else { $failed += 'local' }
         continue
     }
 
-    Git push $c.Remote "$($newest.Sha):refs/heads/$Branch" 2>&1 | Out-Null
+    Invoke-Git push $c.Remote "$($newest.Sha):refs/heads/$Branch" 2>&1 | Out-Null
     if ($LASTEXITCODE -eq 0) { Write-Host "  $($c.Remote) updated" -ForegroundColor Green }
     else { $failed += $c.Remote }
 }

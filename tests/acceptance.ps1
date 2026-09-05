@@ -37,7 +37,7 @@ function Check($name, [bool]$ok, $detail) {
 }
 
 # git writes to stderr on success; under EAP=Stop that becomes a terminating error in 5.1.
-function Git {
+function RunGit {
     $prev = $ErrorActionPreference; $ErrorActionPreference = 'Continue'
     try { & git @args 2>&1 | Out-String } finally { $ErrorActionPreference = $prev }
 }
@@ -46,19 +46,28 @@ function Git {
 # allowed). Tests assert on the reason, never merely on "something was denied" -- in a
 # disposable repo a merge can be refused for an unrelated reason (no GitHub PR to read),
 # which would let an authority test pass without the authority rule doing anything.
+# Let ConvertTo-Json do the escaping. Hand-rolling it got the backslashes wrong and silently
+# broke every multi-segment Windows path pattern -- the tests then reported the hook as
+# permissive when the hook was fine.
+function HookPayload([string]$tool, $inputObj) {
+    return (@{ tool_name = $tool; tool_input = $inputObj } | ConvertTo-Json -Compress -Depth 5)
+}
+function HookDecision([string]$payload, [string]$hookPath) {
+    $out = ($payload | powershell -NoProfile -ExecutionPolicy Bypass -File $hookPath) | Out-String
+    if (-not $out.Trim()) { return $null }
+    try { $o = ($out | ConvertFrom-Json).hookSpecificOutput } catch { return $null }
+    if (-not $o -or $o.permissionDecision -ne 'deny') { return $null }
+    # Read it back through the JSON parser, so assertions match the text a human would see
+    # rather than escape-sequence soup.
+    return [string]$o.permissionDecisionReason
+}
 function GuardReason([string]$command, [string]$hookPath) {
-    $json = '{"tool_name":"Bash","tool_input":{"command":"' + ($command -replace '\\', '\\\\' -replace '"', '\"') + '"}}'
-    $out = ($json | powershell -NoProfile -ExecutionPolicy Bypass -File $hookPath) | Out-String
-    if ($out -notmatch '"permissionDecision":"deny"') { return $null }
-    if ($out -match '"permissionDecisionReason":"(.*?)"\}\}') { return $Matches[1] }
-    return '(denied, reason unparsed)'
+    return (HookDecision (HookPayload 'Bash' @{ command = $command }) $hookPath)
 }
 function GuardDenies([string]$command, [string]$hookPath) { return ($null -ne (GuardReason $command $hookPath)) }
 
 function ProtectDenies([string]$file, [string]$hookPath) {
-    $json = '{"tool_name":"Edit","tool_input":{"file_path":"' + ($file -replace '\\', '\\\\') + '"}}'
-    $out = ($json | powershell -NoProfile -ExecutionPolicy Bypass -File $hookPath) | Out-String
-    return [bool]($out -match '"permissionDecision":"deny"')
+    return ($null -ne (HookDecision (HookPayload 'Edit' @{ file_path = $file }) $hookPath))
 }
 
 # Ask git-guard itself for the digest it expects, exactly as an agent would read it out of
@@ -70,7 +79,7 @@ function Write-Receipt($repo, $guardPath, $verdict = 'PASS') {
     if ($reason -notmatch 'codeDigest[^0-9a-f]{0,24}([0-9a-f]{64})') { throw "no digest in refusal: $reason" }
     $digest = $Matches[1]
     New-Item -ItemType Directory -Force -Path (Join-Path $repo '.claude/review') | Out-Null
-    @{ sha = (Git -C $repo rev-parse HEAD).Trim(); codeDigest = $digest; reviewer = 'code-reviewer'
+    @{ sha = (RunGit -C $repo rev-parse HEAD).Trim(); codeDigest = $digest; reviewer = 'code-reviewer'
        verdict = $verdict; reviewedAt = '2026-09-05T00:00:00Z'; findings = 'none' } |
         ConvertTo-Json | Set-Content (Join-Path $repo '.claude/review/receipt.json')
     return $digest
@@ -108,7 +117,7 @@ $expected = @(
 $missing = @($expected | Where-Object { -not (Test-Path (Join-Path $A $_)) })
 Check 'A2 every expected file is in place' ($missing.Count -eq 0) "missing: $($missing -join ', ')"
 Check 'A3 project name filled in' ((Get-Content (Join-Path $A 'AGENTS.md') -Raw) -match 'Test Project')
-Check 'A4 git initialised on main' ((Git -C $A rev-parse --abbrev-ref HEAD).Trim() -eq 'main')
+Check 'A4 git initialised on main' ((RunGit -C $A symbolic-ref --short -q HEAD).Trim() -eq 'main')
 
 $kitVersion = (Get-Content (Join-Path $kit 'governance-manifest.json') -Raw | ConvertFrom-Json).governanceVersion
 $gv = (Get-Content (Join-Path $A '.governance-version') -Raw).Trim()
@@ -127,8 +136,8 @@ Section 'B. MAIN BRANCH GUARD'
 # ===========================================================================
 Set-Location $A
 Set-Content 'first.txt' 'hello'
-Git add -A | Out-Null
-$onMain = Git commit -m 'chore: should be refused'
+RunGit add -A | Out-Null
+$onMain = RunGit commit -m 'chore: should be refused'
 Check 'B1 lefthook refuses a commit on main' ($LASTEXITCODE -ne 0) $onMain
 Check 'B2 and says to branch first' ($onMain -match 'Branch first') $onMain
 
@@ -138,14 +147,14 @@ Check 'B3 git-guard refuses a commit on main, for that reason' ($r -match "you a
 $r = GuardReason 'git push' $guard
 Check 'B4 git-guard refuses a push on main' ($r -match "you are on 'main'") $r
 
-Git switch -q -c feat/acceptance | Out-Null
-$onBranch = Git commit -m 'chore: baseline'
+RunGit switch -q -c feat/acceptance | Out-Null
+$onBranch = RunGit commit -m 'chore: baseline'
 Check 'B5 commit on a feature branch succeeds' ($LASTEXITCODE -eq 0) $onBranch
 
 # main was unborn (its first commit was correctly refused). Establish it at the baseline so
 # later branches have a base to diff against, as they would after a real first merge.
-Git branch -f main HEAD | Out-Null
-Check 'B6 main now exists as a base' ((Git rev-parse --verify --quiet main).Trim().Length -gt 0)
+RunGit branch -f main HEAD | Out-Null
+Check 'B6 main now exists as a base' ((RunGit rev-parse --verify --quiet main).Trim().Length -gt 0)
 
 Check 'B7 git-guard allows git log --grep=commit' (-not (GuardDenies 'git log --grep=commit' $guard))
 Check 'B8 git-guard allows git stash push'        (-not (GuardDenies 'git stash push -m wip' $guard))
@@ -154,23 +163,26 @@ Set-Location $startDir
 # ===========================================================================
 Section 'C. SECRET GATE'
 # ===========================================================================
-# Assembled at runtime from parts, so no credential-shaped literal is ever committed to the
-# kit and the kit's own secret scan stays clean.
-$rand = -join ((1..16) | ForEach-Object { '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'[(Get-Random -Maximum 36)] })
-$fakeKey = 'AKIA' + $rand
+# Assembled at runtime, so no credential-shaped literal is ever committed to the kit and the
+# kit's own secret scan stays clean. A GitHub-token shape is used deliberately: gitleaks
+# 8.30's default ruleset no longer flags a bare AWS access key ID, so an AKIA fixture would
+# make this test pass or fail for reasons that have nothing to do with the gate being wired
+# up. See the note at the bottom of gitleaks.template.toml.
+$rand36 = -join ((1..36) | ForEach-Object { '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'[(Get-Random -Maximum 62)] })
+$fakeToken = 'ghp_' + $rand36
 Set-Location $A
-Set-Content 'config.txt' ("aws_access_key_id = " + $fakeKey)
-Git add -A | Out-Null
-$secretOut = Git commit -m 'chore: fake credential'
-Check 'C1 a commit containing a credential pattern is refused' ($LASTEXITCODE -ne 0) $secretOut
-Check 'C2 the secret scan is what refused it' ($secretOut -match '(?i)secret|gitleaks|leak') $secretOut
-Check 'C3 the value is redacted, not echoed back' (-not ($secretOut -match [regex]::Escape($fakeKey))) 'the raw key appeared in output'
-Git reset -q HEAD . | Out-Null
+Set-Content 'config.txt' ("GITHUB_TOKEN=" + $fakeToken)
+RunGit add -A | Out-Null
+$secretOut = RunGit commit -m 'chore: fake credential'
+Check 'C1 a commit containing a credential is refused' ($LASTEXITCODE -ne 0) $secretOut
+Check 'C2 the secret scan is what refused it' ($secretOut -match '(?i)leaks found|gitleaks') $secretOut
+Check 'C3 the value is redacted, not echoed back' (-not ($secretOut -match [regex]::Escape($fakeToken))) 'the raw token appeared in the output'
+RunGit reset -q HEAD . | Out-Null
 Remove-Item 'config.txt' -Force
 
 Set-Content 'ordinary.txt' 'just some ordinary project text, nothing secret here'
-Git add -A | Out-Null
-$normalOut = Git commit -m 'chore: ordinary content'
+RunGit add -A | Out-Null
+$normalOut = RunGit commit -m 'chore: ordinary content'
 Check 'C4 ordinary content commits fine' ($LASTEXITCODE -eq 0) $normalOut
 Set-Location $startDir
 
@@ -182,29 +194,29 @@ Set-Location $A
 # repeated bytes cannot be mistaken for a high-entropy secret by the scanner running
 # alongside. That keeps this test about the size gate and nothing else.
 [System.IO.File]::WriteAllText((Join-Path $A 'big.bin'), ('A' * (3 * 1024 * 1024)))
-Git add -A | Out-Null
-$bigOut = Git commit -m 'chore: oversized file'
+RunGit add -A | Out-Null
+$bigOut = RunGit commit -m 'chore: oversized file'
 Check 'D1 an oversized new file is refused' ($LASTEXITCODE -ne 0) $bigOut
 Check 'D2 the size gate is what refused it' ($bigOut -match 'over the 2048 KB limit') $bigOut
 Check 'D3 the refusal names the file'       ($bigOut -match 'big\.bin') $bigOut
 Check 'D4 the refusal says what to do'      ($bigOut -match 'gitignore|Git LFS') $bigOut
-Git reset -q HEAD . | Out-Null
+RunGit reset -q HEAD . | Out-Null
 Remove-Item 'big.bin' -Force
 
 Set-Content 'small.txt' ('x' * 2000)
-Git add -A | Out-Null
-$smallOut = Git commit -m 'chore: normal sized file'
+RunGit add -A | Out-Null
+$smallOut = RunGit commit -m 'chore: normal sized file'
 Check 'D5 a normal-sized file is accepted' ($LASTEXITCODE -eq 0) $smallOut
 
-Git config governance.maxFileKB 1 | Out-Null
+RunGit config governance.maxFileKB 1 | Out-Null
 Set-Content 'medium.txt' ('y' * 40000)
-Git add -A | Out-Null
-$medOut = Git commit -m 'chore: over the tightened limit'
+RunGit add -A | Out-Null
+$medOut = RunGit commit -m 'chore: over the tightened limit'
 Check 'D6 a configured tighter limit is honoured' ($LASTEXITCODE -ne 0) $medOut
 Check 'D7 and the message quotes that limit' ($medOut -match 'over the 1 KB limit') $medOut
-Git reset -q HEAD . | Out-Null
+RunGit reset -q HEAD . | Out-Null
 Remove-Item 'medium.txt' -Force
-Git config --unset governance.maxFileKB | Out-Null
+RunGit config --unset governance.maxFileKB | Out-Null
 Set-Location $startDir
 
 # ===========================================================================
@@ -234,20 +246,20 @@ Check 'F1 --admin is refused as a bypass' ($r -match '--admin bypasses the check
 # Negative control FIRST: on a branch with no governance change, the merge is still refused
 # in this disposable repo -- but for the CI-status reason, NOT the authority reason. Without
 # this, every authority assertion below could pass without the authority rule doing anything.
-Git switch -q main | Out-Null
-Git switch -q -c chore/ordinary-change | Out-Null
+RunGit switch -q main | Out-Null
+RunGit switch -q -c chore/ordinary-change | Out-Null
 Set-Content 'ordinary-code.py' 'x = 1'
-Git add -A | Out-Null; Git commit -q -m 'chore: ordinary' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: ordinary' | Out-Null
 $rOrdinary = GuardReason 'gh pr merge 1 --squash' $guard
 Check 'F2 a non-governance merge is NOT refused on authority grounds' `
       ($rOrdinary -notmatch 'changes the rules that govern you') $rOrdinary
 Check 'F3 (it is refused for the unrelated CI-status reason instead)' `
       ($rOrdinary -match "couldn.t read this PR.s status") $rOrdinary
 
-Git switch -q main | Out-Null
-Git switch -q -c chore/gov-change | Out-Null
+RunGit switch -q main | Out-Null
+RunGit switch -q -c chore/gov-change | Out-Null
 Add-Content 'AGENTS.md' "`n- an extra rule the agent gave itself"
-Git add -A | Out-Null; Git commit -q -m 'docs: widen my own authority' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'docs: widen my own authority' | Out-Null
 $rGov = GuardReason 'gh pr merge 1 --squash' $guard
 Check 'F4 a merge touching AGENTS.md is refused ON AUTHORITY GROUNDS' `
       ($rGov -match 'changes the rules that govern you') $rGov
@@ -258,14 +270,14 @@ $rFj = GuardReason 'fj pr merge 1 --squash' $guard
 Check 'F7 the same authority rule applies on Forgejo' ($rFj -match 'changes the rules that govern you') $rFj
 
 # A gate script is authority too, not just the .md rule files.
-Git switch -q main | Out-Null
-Git switch -q -c chore/gate-change | Out-Null
+RunGit switch -q main | Out-Null
+RunGit switch -q -c chore/gate-change | Out-Null
 Add-Content 'scripts/hooks/check-large-files.sh' "`n# tampered"
-Git add -A | Out-Null; Git commit -q -m 'chore: tweak a gate' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: tweak a gate' | Out-Null
 $rGate = GuardReason 'gh pr merge 1 --squash' $guard
 Check 'F8 editing a GATE is also an authority change' ($rGate -match 'changes the rules that govern you') $rGate
 Check 'F9 and it names the gate'                      ($rGate -match 'check-large-files\.sh') $rGate
-Git switch -q main | Out-Null
+RunGit switch -q main | Out-Null
 Set-Location $startDir
 
 Check 'F10 protect-paths denies editing settings.json' (ProtectDenies (Join-Path $A '.claude/settings.json') $protect)
@@ -286,16 +298,16 @@ Check 'G5 reviewer cannot spawn agents' ($rev -match '(?m)^disallowedTools:.*\bT
 Check 'G6 reviewer is told to review once, at the end' ($rev -match '(?i)ONCE')
 
 Set-Location $A
-Git switch -q main | Out-Null
-Git switch -q -c docs/prose-only | Out-Null
+RunGit switch -q main | Out-Null
+RunGit switch -q -c docs/prose-only | Out-Null
 Add-Content 'NOTES.md' 'a purely prose change'
-Git add -A | Out-Null; Git commit -q -m 'docs: prose' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'docs: prose' | Out-Null
 Check 'G7 a prose-only branch needs no reviewer at all' (-not (GuardDenies 'gh pr create --title x' $guard))
 
-Git switch -q main | Out-Null
-Git switch -q -c feat/real-code | Out-Null
+RunGit switch -q main | Out-Null
+RunGit switch -q -c feat/real-code | Out-Null
 Set-Content 'module.py' "def add(a, b):`n    return a + b`n"
-Git add -A | Out-Null; Git commit -q -m 'feat: add' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'feat: add' | Out-Null
 $r = GuardReason 'gh pr create --title x' $guard
 Check 'G8 a code change with no receipt is refused' ($r -match 'no review receipt') $r
 Check 'G9 and the refusal names the substantive file' ($r -match 'module\.py') $r
@@ -303,15 +315,15 @@ Check 'G9 and the refusal names the substantive file' ($r -match 'module\.py') $
 $d1 = Write-Receipt $A $guard
 Check 'G10 a valid receipt lets the PR open' (-not (GuardDenies 'gh pr create --title x' $guard))
 
-Git add -A | Out-Null; Git commit -q -m 'chore: record the review' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: record the review' | Out-Null
 Check 'G11 committing the receipt does not invalidate it' (-not (GuardDenies 'gh pr create --title x' $guard))
 
 Add-Content 'WORKLOG.md' "`n## 2026-09-05 - a note"
-Git add -A | Out-Null; Git commit -q -m 'docs: worklog' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'docs: worklog' | Out-Null
 Check 'G12 prose committed after review keeps the review valid' (-not (GuardDenies 'gh pr create --title x' $guard))
 
 Add-Content 'module.py' "`ndef subtract(a, b):`n    return a - b`n"
-Git add -A | Out-Null; Git commit -q -m 'feat: subtract' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'feat: subtract' | Out-Null
 $r = GuardReason 'gh pr create --title x' $guard
 Check 'G13 code committed after review DOES invalidate it' ($r -match 'does not match the code') $r
 
@@ -320,13 +332,13 @@ Check 'G14 the digest actually moved with the code' ($d1 -ne $d2) "$d1 / $d2"
 Check 'G15 re-reviewing restores validity' (-not (GuardDenies 'gh pr create --title x' $guard))
 
 # Editing a governance file is substantive even though it is markdown.
-Git add -A | Out-Null; Git commit -q -m 'chore: re-review' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: re-review' | Out-Null
 Add-Content 'AGENTS.md' "`n- a rule change slipped in after review"
-Git add -A | Out-Null; Git commit -q -m 'docs: rule tweak' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'docs: rule tweak' | Out-Null
 $r = GuardReason 'gh pr create --title x' $guard
 Check 'G16 a rules-file edit is NOT treated as exempt prose' ($r -match 'does not match the code') $r
 Write-Receipt $A $guard | Out-Null
-Git add -A | Out-Null; Git commit -q -m 'chore: re-review again' | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: re-review again' | Out-Null
 
 $rc = Get-Content (Join-Path $A '.claude/review/receipt.json') -Raw | ConvertFrom-Json
 $rc.verdict = 'looks fine to me'
@@ -337,8 +349,8 @@ Check 'G17 a receipt with no real verdict is refused' ($r -match 'no usable verd
 Set-Content (Join-Path $A '.claude/review/receipt.json') 'not json at all'
 $r = GuardReason 'gh pr create --title x' $guard
 Check 'G18 a corrupt receipt is refused' ($r -match 'not valid JSON') $r
-Git switch -q main | Out-Null
-Git checkout -q -- . 2>&1 | Out-Null
+RunGit switch -q main | Out-Null
+RunGit checkout -q -- . 2>&1 | Out-Null
 Set-Location $startDir
 
 # ===========================================================================
@@ -350,33 +362,37 @@ Check 'H2 protect-paths no longer blanket-blocks poetry.lock' `
       (-not (ProtectDenies (Join-Path $A 'poetry.lock') $protect))
 
 Set-Location $A
-Git switch -q -c chore/deps | Out-Null
+RunGit switch -q -c chore/deps | Out-Null
 Set-Content 'package.json' '{ "name": "t", "dependencies": { "left-pad": "1.3.0" } }'
 Set-Content 'package-lock.json' '{ "lockfileVersion": 3, "packages": {} }'
-Git add -A | Out-Null
-$bothOut = Git commit -m 'chore: add a dependency properly'
+RunGit add -A | Out-Null
+$bothOut = RunGit commit -m 'chore: add a dependency properly'
 Check 'H3 manifest + lockfile together commits cleanly' ($LASTEXITCODE -eq 0) $bothOut
 Check 'H4 and produces no lockfile warning' (-not ($bothOut -match 'changed but')) $bothOut
 
 Set-Content 'package-lock.json' '{ "lockfileVersion": 3, "packages": { "handEdited": true } }'
-Git add -A | Out-Null
-$lockOnly = Git commit -m 'chore: lockfile only'
+RunGit add -A | Out-Null
+$lockOnly = RunGit commit -m 'chore: lockfile only'
 Check 'H5 a lockfile-only change still commits (warn, not block)' ($LASTEXITCODE -eq 0) $lockOnly
 Check 'H6 but it is surfaced' ($lockOnly -match "package-lock.json' changed but") $lockOnly
-Git switch -q main | Out-Null
+RunGit switch -q main | Out-Null
 Set-Location $startDir
 
 # ===========================================================================
 Section 'I. GOVERNANCE UPDATER'
 # ===========================================================================
 # A genuine V1 kit out of history -> a genuine V1 project -> upgrade it.
+# A local clone at the V1 commit: no tar dependency, no binary through a PowerShell pipe
+# (which corrupts it), and no worktree metadata left behind in the kit repo.
 $v1kit = Join-Path $WorkDir 'v1-kit'
-New-Item -ItemType Directory -Path $v1kit -Force | Out-Null
-$v1sha = (Git -C $kit merge-base HEAD main).Trim()
-$tarPath = Join-Path $WorkDir 'v1.tar'
-Git -C $kit archive --format=tar -o $tarPath $v1sha | Out-Null
-& tar -x -f $tarPath -C $v1kit
-Check 'I0 V1 kit extracted from history' (Test-Path (Join-Path $v1kit 'new-governed-repo.ps1'))
+$v1sha = (& git -C $kit merge-base HEAD main | Out-String).Trim()
+& git clone --quiet --no-checkout $kit $v1kit 2>&1 | Out-Null
+$cloneOk = ($LASTEXITCODE -eq 0)
+& git -C $v1kit checkout --quiet $v1sha 2>&1 | Out-Null
+$checkoutOk = ($LASTEXITCODE -eq 0)
+Check 'I0 V1 kit checked out from history' `
+      ($cloneOk -and $checkoutOk -and (Test-Path (Join-Path $v1kit 'new-governed-repo.ps1'))) `
+      "sha=$v1sha clone=$cloneOk checkout=$checkoutOk"
 
 $I = Join-Path $WorkDir 'I-v1-project'
 & (Join-Path $v1kit 'new-governed-repo.ps1') -Target $I -Name 'Legacy Project' -NoLefthook *>$null
@@ -461,18 +477,18 @@ $sync = Join-Path $kit 'sync-remotes.ps1'
 $J = Join-Path $WorkDir 'J-sync'
 $authRemote = Join-Path $WorkDir 'J-authoritative.git'
 $mirror     = Join-Path $WorkDir 'J-mirror.git'
-Git init -q --bare $authRemote | Out-Null
-Git init -q --bare $mirror | Out-Null
+RunGit init -q --bare $authRemote | Out-Null
+RunGit init -q --bare $mirror | Out-Null
 New-Item -ItemType Directory -Path $J -Force | Out-Null
 Set-Location $J
-Git init -q -b main | Out-Null
-Git config user.email 'test@example.invalid' | Out-Null
-Git config user.name 'Acceptance Test' | Out-Null
-Set-Content 'a.txt' '1'; Git add -A | Out-Null; Git commit -q -m 'init' | Out-Null
-Git remote add origin $authRemote | Out-Null
-Git remote add github $mirror | Out-Null
-Git push -q origin main | Out-Null
-Git push -q github main | Out-Null
+RunGit init -q -b main | Out-Null
+RunGit config user.email 'test@example.invalid' | Out-Null
+RunGit config user.name 'Acceptance Test' | Out-Null
+Set-Content 'a.txt' '1'; RunGit add -A | Out-Null; RunGit commit -q -m 'init' | Out-Null
+RunGit remote add origin $authRemote | Out-Null
+RunGit remote add github $mirror | Out-Null
+RunGit push -q origin main | Out-Null
+RunGit push -q github main | Out-Null
 Set-Location $startDir
 
 $j1 = & $sync -Repo $J -DryRun *>&1 | Out-String
@@ -480,58 +496,58 @@ Check 'J1 equal copies report equal'        ($j1 -match 'already at the same com
 Check 'J2 origin is treated as authoritative' ($j1 -match 'Authoritative: origin') $j1
 
 Set-Location $J
-Set-Content 'a.txt' '2'; Git add -A | Out-Null; Git commit -q -m 'second' | Out-Null
-Git push -q origin main | Out-Null       # authoritative only -- the mirror now lags
+Set-Content 'a.txt' '2'; RunGit add -A | Out-Null; RunGit commit -q -m 'second' | Out-Null
+RunGit push -q origin main | Out-Null       # authoritative only -- the mirror now lags
 Set-Location $startDir
 
-$mirrorBefore = (Git -C $mirror rev-parse main).Trim()
+$mirrorBefore = (RunGit -C $mirror rev-parse main).Trim()
 $j2 = & $sync -Repo $J -DryRun *>&1 | Out-String
 Check 'J3 DryRun spots the lagging mirror'  ($j2 -match 'fast-forward github') $j2
-Check 'J4 DryRun pushed nothing'            ((Git -C $mirror rev-parse main).Trim() -eq $mirrorBefore)
+Check 'J4 DryRun pushed nothing'            ((RunGit -C $mirror rev-parse main).Trim() -eq $mirrorBefore)
 
 & $sync -Repo $J *>&1 | Out-Null
-$localMain = (Git -C $J rev-parse main).Trim()
-Check 'J5 a safe lag is fast-forwarded'     ((Git -C $mirror rev-parse main).Trim() -eq $localMain)
-Check 'J6 the authoritative copy is right too' ((Git -C $authRemote rev-parse main).Trim() -eq $localMain)
+$localMain = (RunGit -C $J rev-parse main).Trim()
+Check 'J5 a safe lag is fast-forwarded'     ((RunGit -C $mirror rev-parse main).Trim() -eq $localMain)
+Check 'J6 the authoritative copy is right too' ((RunGit -C $authRemote rev-parse main).Trim() -eq $localMain)
 
 $j4 = & $sync -Repo $J *>&1 | Out-String
 Check 'J7 running it again is a clean no-op' ($j4 -match 'already at the same commit') $j4
-Check 'J8 the no-op created no commit'       ((Git -C $J rev-parse main).Trim() -eq $localMain)
+Check 'J8 the no-op created no commit'       ((RunGit -C $J rev-parse main).Trim() -eq $localMain)
 
 # Push a feature branch everywhere in one step.
 Set-Location $J
-Git switch -q -c feat/checkpoint | Out-Null
-Set-Content 'work.txt' 'in progress'; Git add -A | Out-Null; Git commit -q -m 'feat: work' | Out-Null
+RunGit switch -q -c feat/checkpoint | Out-Null
+Set-Content 'work.txt' 'in progress'; RunGit add -A | Out-Null; RunGit commit -q -m 'feat: work' | Out-Null
 Set-Location $startDir
 & $sync -Repo $J -Branch feat/checkpoint *>&1 | Out-Null
 Check 'J9 a feature branch reaches the authoritative remote' `
-      ((Git -C $authRemote rev-parse --verify --quiet 'feat/checkpoint').Trim().Length -gt 0)
+      ((RunGit -C $authRemote rev-parse --verify --quiet 'feat/checkpoint').Trim().Length -gt 0)
 Check 'J10 and the mirror, in the same step' `
-      ((Git -C $mirror rev-parse --verify --quiet 'feat/checkpoint').Trim().Length -gt 0)
+      ((RunGit -C $mirror rev-parse --verify --quiet 'feat/checkpoint').Trim().Length -gt 0)
 
 # Genuine divergence: each remote gets a commit the other has never seen.
 $K = Join-Path $WorkDir 'J-other-clone'
-Git clone -q $mirror $K | Out-Null
+RunGit clone -q $mirror $K | Out-Null
 Set-Location $K
-Git config user.email 'test@example.invalid' | Out-Null
-Git config user.name 'Acceptance Test' | Out-Null
-Git switch -q main | Out-Null
-Set-Content 'b.txt' 'mirror-only work'; Git add -A | Out-Null; Git commit -q -m 'mirror side' | Out-Null
-Git push -q origin main | Out-Null
+RunGit config user.email 'test@example.invalid' | Out-Null
+RunGit config user.name 'Acceptance Test' | Out-Null
+RunGit switch -q main | Out-Null
+Set-Content 'b.txt' 'mirror-only work'; RunGit add -A | Out-Null; RunGit commit -q -m 'mirror side' | Out-Null
+RunGit push -q origin main | Out-Null
 Set-Location $J
 Set-Content 'c.txt' 'authoritative-only work'
-Git switch -q main | Out-Null
-Git add -A | Out-Null; Git commit -q -m 'auth side' | Out-Null
-Git push -q origin main | Out-Null
+RunGit switch -q main | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'auth side' | Out-Null
+RunGit push -q origin main | Out-Null
 Set-Location $startDir
 
-$authBefore = (Git -C $authRemote rev-parse main).Trim()
-$mirBefore  = (Git -C $mirror rev-parse main).Trim()
+$authBefore = (RunGit -C $authRemote rev-parse main).Trim()
+$mirBefore  = (RunGit -C $mirror rev-parse main).Trim()
 $j5 = & $sync -Repo $J *>&1 | Out-String
 Check 'J11 genuine divergence is refused'    ($j5 -match 'REFUSED') $j5
 Check 'J12 the refusal explains rather than picking a side' ($j5 -match 'throwing one side') $j5
-Check 'J13 the authoritative copy was not touched' ((Git -C $authRemote rev-parse main).Trim() -eq $authBefore)
-Check 'J14 the mirror was not touched'             ((Git -C $mirror rev-parse main).Trim() -eq $mirBefore)
+Check 'J13 the authoritative copy was not touched' ((RunGit -C $authRemote rev-parse main).Trim() -eq $authBefore)
+Check 'J14 the mirror was not touched'             ((RunGit -C $mirror rev-parse main).Trim() -eq $mirBefore)
 Check 'J15 sync-remotes contains no force-push at all' `
       (-not ((Get-Content $sync -Raw) -match '--force\b|push\s+-f\b|\+refs/'))
 
@@ -557,7 +573,7 @@ $ErrorActionPreference = $prev
 Set-Location $startDir
 Check 'L1 the kit repo itself contains no secrets' $leakOk $leak
 
-$tracked = @((Git -C $kit ls-files) -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+$tracked = @((RunGit -C $kit ls-files) -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $bigTracked = @($tracked | Where-Object {
     $fp = Join-Path $kit $_
     (Test-Path $fp) -and ((Get-Item $fp).Length -gt (2048 * 1024))
