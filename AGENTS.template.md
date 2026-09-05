@@ -116,13 +116,15 @@ materially changed what was reviewed.
 Don't run a reviewer while the implementation is still moving.
 
 - **Trivial** (typo, small doc fix, cosmetic change with a deterministic check): no reviewer.
-  A branch touching only prose is exempt automatically.
+  A branch touching only prose files is exempt automatically. Prose means the file TYPE
+  (`.md`, `.txt`, `.rst`), not the folder — a script under `docs/` is code like any other.
 - **Normal:** one independent review.
 - **High risk** — auth, permissions, credentials, privacy, payments, destructive data
   operations, migrations, deployment, governance: one independent review, always.
 
 Record the outcome in `.claude/review/receipt.json`. The gate checks it against the actual
-code, so prose commits after a review don't invalidate it and code commits do.
+code, so prose commits after a review don't invalidate it and code commits do — and it
+re-checks at merge, so code pushed after the review blocks the merge too.
 
 ## Verification — prove it, don't repeat it
 
@@ -187,7 +189,7 @@ you tagged it for — never mix shells in one line.
 - Newly added files over the size limit — blocked.
 - `--no-verify` and `--admin` — blocked.
 - Edits to the rules and gates themselves — blocked.
-- PRs with unreviewed code changes — blocked.
+- PRs with unreviewed code changes — blocked at open **and** at merge.
 - Merging red, or merging a governance PR — blocked.
 - Leftover work at end of turn — auto-committed and pushed.
 

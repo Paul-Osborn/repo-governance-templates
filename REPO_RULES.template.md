@@ -252,12 +252,20 @@ requires `.claude/review/receipt.json` naming a verdict and a `codeDigest` — a
 branch diff restricted to the files that can actually change behaviour. Two consequences,
 both deliberate:
 
-- A branch touching only prose (docs, plain `*.md`, `WORKLOG`, the receipt itself) needs no
-  receipt at all. The earlier version demanded one for a README typo, which taught everyone to
-  run a reviewer purely to generate a file.
+- A branch touching only prose needs no receipt at all. The earlier version demanded one for
+  a README typo, which taught everyone to run a reviewer purely to generate a file.
+  "Prose" is decided by file TYPE -- `.md`, `.txt`, `.rst`, `WORKLOG`, `CHANGELOG`, and the
+  receipt itself -- never by folder. A draft of this exempted everything under `docs/`, which
+  meant a shell script called `docs/setup.sh` counted as prose and reached a PR with no review
+  at all. A folder name says nothing about what a file does.
 - Adding a WORKLOG entry after a clean review does not invalidate it; changing a line of code
   does. The earlier version pinned the receipt to a commit SHA, so any commit at all forced a
   re-review that could not find anything new.
+
+The receipt is checked at `pr create` **and again at `pr merge`**. Checking only at creation
+left a hole wide enough for the auto-commit hook to walk through: open the PR with a clean
+receipt, push three more commits of real code, merge. Merging is the irreversible act, so it
+is the one that must not be able to happen unreviewed.
 
 Honest limit: this forces a review to *happen* and to be recorded against specific code. It
 cannot force the agent to act on what the review said, and an agent determined to write a
@@ -269,8 +277,13 @@ ratify one. `git-guard` refuses to merge any PR touching `AGENTS.md`, `CLAUDE.md
 `GEMINI.md`, `REPO_RULES.md`, `lefthook.yml`, `.gitleaks.toml`, `.governance-version`, or
 anything under `.claude/`, `.cursor/`, `.github/workflows/` or `scripts/hooks/`. Without it,
 merge power is self-amplifying: an agent could merge the PR that widens its own permissions.
-The check reads the branch diff from local git, so it holds on GitHub and Forgejo alike, and
-fails closed if it cannot determine what the branch changed.
+The check reads the branch diff from local git -- so it holds on Forgejo, which this gate
+does not speak -- and on GitHub it ALSO reads the PR's own file list. Both, because each
+covers the other's blind spot: local git is blind when you merge a PR by number from a
+different branch (the diff it reads is empty, and an empty diff contains no governance
+files), and the API is blind on any host that isn't GitHub. It fails closed if it cannot
+determine what the branch changed, and refuses outright to merge from a branch that is not
+the PR's.
 
 **Optional:** a CI workflow re-runs tests and the secret scan on every push, catching anything
 that slipped past local checks.
