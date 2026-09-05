@@ -51,12 +51,15 @@ $map = [ordered]@{
     'gitattributes.template'       = '.gitattributes'    # keeps *.sh LF-only so the sh hooks run on Windows
     'lefthook.template.yml'        = 'lefthook.yml'
     'no-commit-on-main.template.sh' = 'scripts/hooks/no-commit-on-main.sh'  # branch guard (LF-only POSIX sh)
+    'check-large-files.template.sh' = 'scripts/hooks/check-large-files.sh'  # large-file gate (LF-only POSIX sh)
+    'check-lockfiles.template.sh'  = 'scripts/hooks/check-lockfiles.sh'    # lockfile sanity warning (LF-only POSIX sh)
     'gitleaks.template.toml'       = '.gitleaks.toml'
     'cursor-rules.template.mdc'    = '.cursor/rules/agents.mdc'
     'git-guard.template.ps1'       = '.claude/hooks/git-guard.ps1'
     'protect-paths.template.ps1'   = '.claude/hooks/protect-paths.ps1'
     'auto-commit.template.ps1'     = '.claude/hooks/auto-commit.ps1'
     'claude-settings.snippet.json' = '.claude/settings.json'
+    'code-reviewer.template.md'    = '.claude/agents/code-reviewer.md'   # the one permitted subagent
 }
 
 # Resolve / create the target folder.
@@ -78,6 +81,15 @@ foreach ($entry in $map.GetEnumerator()) {
     if ($toDir -and -not (Test-Path $toDir)) { New-Item -ItemType Directory -Path $toDir -Force | Out-Null }
     Copy-Item $from $to -Force
     Write-Host "  + $($entry.Value)" -ForegroundColor Green
+}
+
+# Record which generation of the kit this project got, so `update-governance.ps1` and a
+# human can both answer "what rules is this repo on?" without inferring it from the files.
+$manifestPath = Join-Path $src 'governance-manifest.json'
+if (Test-Path $manifestPath) {
+    $gv = (Get-Content $manifestPath -Raw | ConvertFrom-Json).governanceVersion
+    Set-Content (Join-Path $dest '.governance-version') $gv -Encoding UTF8
+    Write-Host "  + .governance-version ($gv)" -ForegroundColor Green
 }
 
 if ($WithOptional) {
@@ -130,3 +142,6 @@ Write-Host "Done. Next:" -ForegroundColor Cyan
 Write-Host "  1. Open '$dest' in your agent (Claude Code, Codex, Cursor, or Antigravity)."
 Write-Host '  2. Tell it: "Read AGENTS.md, then fill in the placeholders for <what you are building> and make the first commit."'
 Write-Host "     The agent branches first, fills the <PLACEHOLDER>s, commits .gitignore, then the rest."
+Write-Host ""
+Write-Host "  Later, to take a newer version of the gates into this project:" -ForegroundColor Cyan
+Write-Host "     & \"$env:REPO_GOVERNANCE_HOME\\update-governance.ps1\" -Target '$dest' -DryRun"

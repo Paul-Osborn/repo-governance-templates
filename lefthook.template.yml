@@ -1,22 +1,23 @@
-# Lefthook — runs quick checks automatically before each commit.
+# Lefthook — the checks that run automatically before every commit.
 #
-# BOTH tools must be installed or the pre-commit pipeline no-ops/fails:
-#   1. lefthook:  https://github.com/evilmartians/lefthook   (`scoop install lefthook`)
-#   2. gitleaks:  https://github.com/gitleaks/gitleaks        (`scoop install gitleaks`)
-#   3. Copy this file to your repo root as `lefthook.yml`, then run:  lefthook install
+# These are the GIT-level gates: they apply to every agent (Claude, Codex, Cursor,
+# Antigravity) and to commits you make by hand. Nothing here depends on an agent
+# remembering a rule.
+#
+# BOTH tools must be installed or the pipeline no-ops/fails:
+#   1. lefthook:  https://github.com/evilmartians/lefthook
+#   2. gitleaks:  https://github.com/gitleaks/gitleaks
 #      (`scoop install lefthook gitleaks` installs both at once.)
-#
-# After that, every `git commit` runs these checks first and aborts if any fail.
+#   3. Copy this file to your repo root as `lefthook.yml`, then run:  lefthook install
 #
 # NOTE: lefthook runs each `run:` string through Git's bundled POSIX `sh`, not PowerShell.
-# The branch guard therefore lives in an LF-only sh script (scripts/hooks/no-commit-on-main.sh)
-# kept LF by .gitattributes — inline PowerShell or a CRLF `run: |` block breaks under sh on Windows.
+# The gates therefore live in LF-only sh scripts under scripts/hooks/, kept LF by
+# .gitattributes — inline PowerShell or a CRLF `run: |` block breaks under sh on Windows.
 
 pre-commit:
   parallel: true
   commands:
-    # Branch guard at the git level, so it applies to EVERY agent (Claude, Codex, Cursor,
-    # Antigravity) and to manual commits — not just Claude's hook. Refuses commits on main.
+    # Refuses any commit made on main/master. Branch first.
     no-commit-on-main:
       run: sh scripts/hooks/no-commit-on-main.sh
 
@@ -24,10 +25,14 @@ pre-commit:
     secret-scan:
       run: gitleaks protect --staged --redact --config .gitleaks.toml
 
-    # Catch giant files before they pollute history. Adjust the size as needed.
+    # Refuses a newly added file over the size limit (default 2048 KB).
+    # Change the limit with:  git config governance.maxFileKB <number>
     no-large-files:
-      run: git diff --cached --name-only --diff-filter=A
-      # Lefthook passes staged files; see docs to add a size check script if you want one.
+      run: sh scripts/hooks/check-large-files.sh
+
+    # WARNS (does not block) when a dependency lockfile changed but its manifest did not.
+    lockfile-sanity:
+      run: sh scripts/hooks/check-lockfiles.sh
 
     # --- Wire your project's own checks below. Uncomment and edit. ---
     # lint:
@@ -36,7 +41,7 @@ pre-commit:
     # format-check:
     #   run: <your formatter in check mode, e.g. prettier --check {staged_files}>
 
-# Optional: also run the secret scan and tests before pushing.
+# Optional: also run tests before pushing.
 # pre-push:
 #   commands:
 #     test:
