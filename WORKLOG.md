@@ -3,6 +3,17 @@
 > Dated running log of what changed. Newest at the top. Keep entries short; link to the PR
 > instead of re-explaining it.
 
+## 2026-09-05 — Deterministic V1 fixture for governance acceptance suite
+
+- **Branch:** `fix/governance-v1-acceptance-fixture` → PR #5
+- **Changed:** Fixed historical Governance V1 fixture selection in `tests/acceptance.ps1`
+  (Section I). Replaced dynamic `git merge-base HEAD main` (which resolved to V2 history
+  once V2 merged into `main`) with immutable historical V1 commit SHA
+  `df4014f91a12ced80d26a7fb97a2c577a0144891` (the final commit of Governance V1 immediately
+  preceding the V2 PR #1 merge).
+- **Verified by:** Full canonical acceptance suite `tests/acceptance.ps1` (144 PASS, 0 FAIL;
+  all 11 Section I failures resolved).
+
 ## 2026-09-05 — Governance V2
 
 

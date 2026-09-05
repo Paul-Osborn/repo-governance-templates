@@ -443,8 +443,12 @@ Section 'I. GOVERNANCE UPDATER'
 # A genuine V1 kit out of history -> a genuine V1 project -> upgrade it.
 # A local clone at the V1 commit: no tar dependency, no binary through a PowerShell pipe
 # (which corrupts it), and no worktree metadata left behind in the kit repo.
+#
+# Commit df4014f91a12ced80d26a7fb97a2c577a0144891 is the final commit of Governance V1,
+# immediately preceding the merge of V2 (PR #1). Using this immutable commit SHA ensures
+# a deterministic V1 fixture as main and future branches advance.
 $v1kit = Join-Path $WorkDir 'v1-kit'
-$v1sha = (& git -C $kit merge-base HEAD main | Out-String).Trim()
+$v1sha = 'df4014f91a12ced80d26a7fb97a2c577a0144891'
 & git clone --quiet --no-checkout $kit $v1kit 2>&1 | Out-Null
 $cloneOk = ($LASTEXITCODE -eq 0)
 & git -C $v1kit checkout --quiet $v1sha 2>&1 | Out-Null

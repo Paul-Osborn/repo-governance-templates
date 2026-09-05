@@ -1,8 +1,8 @@
-﻿{
-    "sha":  "7bd09d20518a625e372171bf8f0b5a5fce6df50f",
-    "codeDigest":  "949888f05a1a769fe41e366cc5e1874317f6247617ce5874814dd5dbd971165f",
+{
+    "sha":  "7be87267c1d7eba6f4005887ece3990e677909c2",
+    "codeDigest":  "15a17626822db5d7accebb4603c23580d4e53087f1188563cdfba728995af93b",
     "reviewer":  "code-reviewer",
     "verdict":  "PASS",
-    "reviewedAt":  "2026-09-05T15:21:04.5116323-05:00",
-    "findings":  "Evaluated PowerShell AST for here-string CRLF sanitization and verified Caddy restart behavior with admin off."
+    "reviewedAt":  "2026-09-05T18:00:20-05:00",
+    "findings":  "Independent review passed with PASS verdict. Confirmed df4014f91a12ced80d26a7fb97a2c577a0144891 is genuine historical V1 fixture, deterministic for future main commits; canonical acceptance suite finishes with 144 PASS, 0 FAIL."
 }
