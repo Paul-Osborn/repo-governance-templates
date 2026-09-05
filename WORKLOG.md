@@ -5,6 +5,7 @@
 
 ## 2026-09-05 — Governance V2
 
+
 - **Branch:** `feat/governance-v2` → PR #1 (Forgejo, awaiting Paul's ratification)
 - **Changed:** V2 of the kit. Autonomy after objective approval, one cohesive deliverable per
   branch, lean-engineering and subagent-economy rules native to `AGENTS.md`, one end-of-work
