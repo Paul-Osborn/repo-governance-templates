@@ -27,13 +27,13 @@
   .\update-global-rules.ps1
 
 .PARAMETER DryRun  Report what would change and stop. Writes nothing.
-.PARAMETER Agent   Limit to one agent: claude, codex or gemini. Default: all of them.
+.PARAMETER Agent   Limit to one agent: claude, codex, gemini or opencode. Default: all of them.
 .PARAMETER NoBackup  Skip the .bak copy.
 #>
 [CmdletBinding()]
 param(
     [switch]$DryRun,
-    [ValidateSet('claude', 'codex', 'gemini', 'all')]
+    [ValidateSet('claude', 'codex', 'gemini', 'opencode', 'all')]
     [string]$Agent = 'all',
     [switch]$NoBackup
 )
@@ -45,7 +45,7 @@ $BEGIN = '<!-- BEGIN repo-governance (managed) -->'
 $END   = '<!-- END repo-governance (managed) -->'
 
 # The governance content, assembled from the files in global/. Edit those, not this script.
-$sources = @('global/new-project-bootstrap.md', 'global/server-rules.md')
+$sources = @('global/new-project-bootstrap.md', 'global/server-rules.md', 'global/hardware-specs.md')
 $parts = @()
 foreach ($s in $sources) {
     $path = Join-Path $kit $s
@@ -58,9 +58,10 @@ $managed = ($BEGIN, '', ($parts -join "`n`n---`n`n"), '', $END) -join "`n"
 $managed = $managed -replace "`r`n", "`n"
 
 $targets = [ordered]@{
-    claude = Join-Path $HOME '.claude\CLAUDE.md'
-    codex  = Join-Path $HOME '.codex\AGENTS.md'
-    gemini = Join-Path $HOME '.gemini\GEMINI.md'
+    claude   = Join-Path $HOME '.claude\CLAUDE.md'
+    codex    = Join-Path $HOME '.codex\AGENTS.md'
+    gemini   = Join-Path $HOME '.gemini\GEMINI.md'
+    opencode = Join-Path $HOME '.config\opencode\AGENTS.md'
 }
 if ($Agent -ne 'all') { $targets = @{ $Agent = $targets[$Agent] } }
 
