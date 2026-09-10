@@ -35,3 +35,6 @@
 - **Open decisions:** none. One documented limitation: on Forgejo the gate cannot verify that
   `fj pr merge <n>` refers to the checked-out branch, so "merge the branch you have checked
   out" is a rule there rather than an enforced gate.
+
+## September 10, 2026 — private room deployment and routing repair
+Owner explicitly authorized preserving the live dashboard and Astrocade and reconciling drift before publishing Cozy Tavern. Manifest/Caddy/fallback portal now include both missing apps. Root remains the Home Portal via loopback dashboard. Dashboard production cards read the manifest. Changes are on feat/private-app-private-room; do not replace with old static-root config. Snapshot: /var/backups/server-router/snapshots/20260910-132232. No Tailscale ingress changes required.
