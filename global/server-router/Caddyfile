@@ -61,6 +61,18 @@
 		root * /var/www/happy-hour
 		file_server
 	}
+	@voicehub path /voicehub /voicehub/*
+	handle @voicehub {
+		# The app doesn't know its mount path: strip the prefix before
+		# proxying, and send it downstream over the redirect first so
+		# relative asset links (style.css, app.js) resolve correctly.
+		@voicehubnoslash path /voicehub
+		redir @voicehubnoslash /voicehub/ 308
+		uri strip_prefix /voicehub
+		reverse_proxy 127.0.0.1:8000 {
+			header_up X-Real-IP {remote_host}
+		}
+	}
 	@simpled path /simpled /simpled/*
 	handle @simpled {
 		# The page uses relative links, so the prefix is stripped for the app and

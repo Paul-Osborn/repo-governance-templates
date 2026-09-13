@@ -108,6 +108,18 @@
       "icon": "🍹"
     },
     {
+      "path": "/voicehub",
+      "kind": "reverse_proxy",
+      "target": "127.0.0.1:8000",
+      "service": "voice-hub.service",
+      "prefix_preserved": false,
+      "backend_path": "/",
+      "title": "Voice Hub",
+      "description": "Text-to-speech playback and speech-to-text dictation, powered by Gemini.",
+      "note": "Caddy strips the public /voicehub prefix; bare /voicehub redirects to /voicehub/. App does not know its mount path.",
+      "icon": "🎙️"
+    },
+    {
       "path": "/simpled",
       "kind": "reverse_proxy",
       "target": "127.0.0.1:9200",
