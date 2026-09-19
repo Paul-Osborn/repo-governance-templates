@@ -5,7 +5,7 @@ param([switch]$Keep, [string]$WorkDir)
 
 $ErrorActionPreference = 'Stop'
 $kit = Split-Path $PSScriptRoot -Parent
-if (-not $WorkDir) { $WorkDir = Join-Path $env:TEMP ("governance-v3-" + [guid]::NewGuid().ToString('N')) }
+if (-not $WorkDir) { $WorkDir = Join-Path ([IO.Path]::GetTempPath()) ("governance-v3-" + [guid]::NewGuid().ToString('N')) }
 $pass = 0; $fail = 0
 
 function Check([string]$Name, [bool]$Ok, $Detail) {
