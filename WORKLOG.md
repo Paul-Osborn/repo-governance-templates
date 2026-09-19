@@ -2,6 +2,30 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-09-19 — Trust-root path consolidation (issue #8)
+
+- **Branch:** `fix/v3-trust-root-consistency`
+- **Changed:** Made `governance-policy.template.json` / installed `.governance/policy.json`
+  `trustRootPaths` the single source of truth. `classify-change.sh` now reads it from the
+  **base** commit rather than the working tree or head, closing a real bypass this review found:
+  a branch could otherwise shrink its own `trustRootPaths` and use that shrunk definition to
+  classify its own edit to a now-untracked governance file (e.g. `AGENTS.md`) as prose-only.
+  `review-gate.yml` already fetched policy at the base SHA via the API; it is now `contents:
+  read` and unchanged in behavior. The legacy PowerShell git-guard fallback list now prefers the
+  installed policy and falls back to a literal list. Found and fixed real drift along the way:
+  `.github/governance-profile.json` was in CODEOWNERS and the git-guard fallback but missing
+  from the canonical `trustRootPaths`. `validate-governance.sh` now deterministically compares
+  CODEOWNERS and the git-guard fallback against the canonical policy and fails closed on drift in
+  either direction.
+- **Verified by:** Linux acceptance suite (82 checks, including new trust-root fixtures proving
+  CODEOWNERS drift is rejected in both directions, a policy-only trust-root addition reaches the
+  classifier with no code edit, and a same-branch policy-shrink attack is defeated), PowerShell
+  7.6.6 compatibility suite on Linux (21 checks), governance structure/manifest validation in
+  both kit and installed mode, shell syntax, `git diff --check`, offline zizmor, and actionlint.
+  Native Windows execution remains pending under issue #9.
+- **Next:** independent review, then the human owner merges the PR and closes issue #8.
+- **Open decisions:** none for this branch; issues #9 and #10 remain separately owned.
+
 ## 2026-09-19 — V3 self-bootstrap after ratification
 
 - **Branch:** `chore/bootstrap-v3-governance`
