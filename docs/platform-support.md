@@ -29,10 +29,19 @@ then run `lefthook install` in the governed repository.
 & "$env:REPO_GOVERNANCE_HOME\update-governance.ps1" -Target . -DryRun
 ```
 
-V3's Linux acceptance suite runs on this project's Linux path. The PowerShell acceptance suite can
-also run under PowerShell Core on Linux for real script-execution coverage, and Windows scripts
-receive fixture and static compatibility tests. That is not a substitute for a native Windows run;
-a release must state explicitly when it was not executed on a real Windows host.
+V3's Linux acceptance suite runs on this project's Linux path. The PowerShell acceptance suite also
+runs under PowerShell Core on Linux for real script-execution coverage, and, as of issue #9, on a
+GitHub-hosted `windows-latest` runner (native Git for Windows, native PowerShell) as a permanent
+CI job: `Governance / windows-verification` in `.github/workflows/governance.yml`. That job
+installs checksum-pinned Gitleaks and Lefthook for Windows and runs `tests/acceptance.ps1` for
+real, exercising bootstrap, migration, hooks via Git for Windows' bundled shell, the secret and
+large-file gates, and the private-marker scans, on the actual OS and shell those scripts ship for.
+First green run:
+[35469937248](https://github.com/Paul-Osborn/repo-governance-templates/actions/runs/35469937248) —
+Windows Server 2025 (10.0.26100), runner image `windows-2025-vs2026` (20260907.229.1), Git for
+Windows 2.55.0, PowerShell 7.6.5, bundled `bash`/`sh` 5.3.15(2), Gitleaks 8.30.1, Lefthook 2.1.14:
+22/22 checks passed. A release must still state explicitly if a later change was not itself
+covered by a native Windows run.
 
 ## GitHub controls
 
