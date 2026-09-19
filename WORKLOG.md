@@ -2,6 +2,31 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-09-19 — Native Windows verification (issue #9)
+
+- **Branch:** `test/v3-native-windows-verification`
+- **Changed:** Added `Governance / windows-verification` to `.github/workflows/governance.yml`: a
+  permanent job on GitHub-hosted `windows-latest`, installing checksum-pinned Gitleaks 8.30.1 and
+  Lefthook 2.1.14 for Windows (verified against the same upstream release manifests already pinned
+  for the Linux jobs) and running `tests/acceptance.ps1` for real, native execution. Deliberately
+  not added to the shipped `github/workflows/governance.template.yml` — that template goes to
+  every downstream project bootstrapped from this kit, and those projects don't receive
+  `tests/acceptance.ps1` (it tests this kit's own bootstrap/migration behavior, not a downstream
+  project's code); mandating Windows CI cost on every consumer by default is a separate, larger
+  decision than verifying this kit's own native Windows behavior. Updated `docs/platform-support.md`
+  from "not a substitute for a native Windows run" to cite the first green run.
+- **Verified by:** first native Windows run
+  [35469937248](https://github.com/Paul-Osborn/repo-governance-templates/actions/runs/35469937248) —
+  Windows Server 2025 (10.0.26100), runner image `windows-2025-vs2026` (20260907.229.1), Git for
+  Windows 2.55.0, PowerShell 7.6.5, bundled `bash`/`sh` 5.3.15(2): **22/22 checks passed**,
+  covering bootstrap, V2→V3 migration, hooks via Git for Windows' bundled shell, the secret and
+  large-file gates, and the private-marker scans. All other governance jobs (invariants, secrets,
+  actions-security, project) remained green on the same PR.
+- **Next:** independent review, then the human owner merges the PR; close issue #9 only after
+  merge and a successful run on `main`, per the issue's own acceptance criteria.
+- **Open decisions:** none for this branch; issue #10 and strict ruleset activation remain
+  separately owned and are explicitly out of scope here.
+
 ## 2026-09-19 — Trust-root path consolidation (issue #8)
 
 - **Branch:** `fix/v3-trust-root-consistency`
