@@ -32,7 +32,10 @@ esac
 max_bytes=$((max_kb * 1024))
 
 if [ "$mode" = range ]; then
-  staged=$(git diff --name-only --diff-filter=A "$base" "$head")
+  if ! staged=$(git diff --name-only --diff-filter=A "$base" "$head"); then
+    echo "Refused: unable to inspect added files for range '$base..$head'." >&2
+    exit 1
+  fi
 else
   staged=$(git diff --cached --name-only --diff-filter=A)
 fi

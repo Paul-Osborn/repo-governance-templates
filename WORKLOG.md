@@ -8,13 +8,16 @@
 - **Changed:** Implemented issue #6 as a cross-platform, agent-neutral four-layer governance kit:
   Linux/Windows bootstrap and migration, portable gates, protected-base exact-state review,
   pinned CI and workflow analysis, GitHub plan/apply policy, public/private separation, and
-  disposable acceptance coverage.
-- **Verified by:** Linux/Omarchy acceptance suite (68 checks), PowerShell 7.6.6 compatibility
-  suite on Linux (15 checks), manifest consistency, actionlint, offline zizmor,
-  JSON/YAML/shell syntax, and a real GitHub policy dry-run. Native Windows execution remains
-  pending and is called out in the PR evidence.
-- **Next:** open the human-ratified PR for issue #6; Claude performs the independent PR review.
-- **Open decisions:** none; the security model documents the reviewer-status trust limitation.
+  disposable acceptance coverage. Owner-approved review remediation preserved company-specific
+  infrastructure material privately, scrubbed it from reachable public Git history, and made the
+  large-file range gate fail closed when Git cannot resolve the comparison.
+- **Verified by:** Linux/Omarchy acceptance suite (70 checks), PowerShell 7.6.6 compatibility
+  suite on Linux (16 checks), manifest consistency, ShellCheck, actionlint, offline zizmor,
+  Gitleaks, JSON/YAML/shell syntax, and rewritten-history private-data scans. Native Windows
+  execution remains pending under issue #9.
+- **Next:** live-test the remote ruleset on a disposable public repository, then obtain a new
+  independent review bound to the stabilized exact HEAD.
+- **Open decisions:** none; issues #8, #9, and #10 own the accepted follow-up work.
 
 ## 2026-09-05 — Deterministic V1 fixture
 
