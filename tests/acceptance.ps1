@@ -13,6 +13,27 @@ function Check([string]$Name, [bool]$Ok, $Detail) {
     else { $script:fail++; Write-Host "FAIL  $Name" -ForegroundColor Red; if ($Detail) { Write-Host $Detail } }
 }
 function Run-Git { $old = $ErrorActionPreference; $ErrorActionPreference = 'Continue'; try { & git @args 2>&1 | Out-String } finally { $ErrorActionPreference = $old } }
+function Test-ReachableGitMetadata([string]$Repository, [string]$Pattern) {
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $metadata = (& git -C $Repository log --all "--format=%an%n%ae%n%cn%n%ce%n%B" 2>&1 | Out-String)
+        if ($LASTEXITCODE -ne 0) { return $false }
+        $tagObjects = @(& git -C $Repository for-each-ref "--format=%(objectname)" refs/tags 2>&1)
+        if ($LASTEXITCODE -ne 0) { return $false }
+        foreach ($tagObject in $tagObjects) {
+            if (-not $tagObject) { continue }
+            $objectType = (& git -C $Repository cat-file -t $tagObject 2>&1 | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0) { return $false }
+            if ($objectType -eq 'tag') {
+                $metadata += (& git -C $Repository cat-file tag $tagObject 2>&1 | Out-String)
+                if ($LASTEXITCODE -ne 0) { return $false }
+            }
+        }
+        return $metadata -notmatch $Pattern
+    }
+    finally { $ErrorActionPreference = $old }
+}
 
 foreach ($tool in @('git', 'sh', 'lefthook', 'gitleaks')) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "Missing test prerequisite: $tool" }
@@ -84,6 +105,56 @@ try {
     Check 'PowerShell migration preserves project source' ((Get-Content (Join-Path $legacy 'source.txt') -Raw).Trim() -eq 'project source') $null
     $again = & (Join-Path $kit 'update-governance.ps1') -Target $legacy *>&1 | Out-String
     Check 'PowerShell migration is idempotent' ($again -match 'Already current') $again
+
+    $privatePattern = 'tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini' + 'sforum|server-router/' + 'routes'
+    Check 'PowerShell reachable Git metadata contains no private infrastructure markers' (Test-ReachableGitMetadata $kit $privatePattern) $null
+
+    $metadataRepo = Join-Path $WorkDir 'metadata-leak'
+    Run-Git init -q -b main $metadataRepo | Out-Null
+    Run-Git -C $metadataRepo config user.name 'Metadata Acceptance' | Out-Null
+    Run-Git -C $metadataRepo config user.email test@example.invalid | Out-Null
+    Set-Content (Join-Path $metadataRepo 'state.txt') 'baseline'
+    Run-Git -C $metadataRepo add state.txt | Out-Null
+    Run-Git -C $metadataRepo commit -q -m 'chore: establish metadata fixture' | Out-Null
+    Add-Content (Join-Path $metadataRepo 'state.txt') 'identity leak'
+    Run-Git -C $metadataRepo add state.txt | Out-Null
+    $forbiddenMetadataHost = 'fixture.' + 'tailacceptance' + '.ts.net'
+    $savedAuthorName = $env:GIT_AUTHOR_NAME
+    $savedAuthorEmail = $env:GIT_AUTHOR_EMAIL
+    $savedCommitterName = $env:GIT_COMMITTER_NAME
+    $savedCommitterEmail = $env:GIT_COMMITTER_EMAIL
+    try {
+        $env:GIT_AUTHOR_NAME = 'Metadata Acceptance'
+        $env:GIT_AUTHOR_EMAIL = "author@noreply.$forbiddenMetadataHost"
+        $env:GIT_COMMITTER_NAME = 'Metadata Acceptance'
+        $env:GIT_COMMITTER_EMAIL = "committer@noreply.$forbiddenMetadataHost"
+        Run-Git -C $metadataRepo commit -q -m 'test: exercise forbidden identity metadata' | Out-Null
+    }
+    finally {
+        $env:GIT_AUTHOR_NAME = $savedAuthorName
+        $env:GIT_AUTHOR_EMAIL = $savedAuthorEmail
+        $env:GIT_COMMITTER_NAME = $savedCommitterName
+        $env:GIT_COMMITTER_EMAIL = $savedCommitterEmail
+    }
+    Check 'PowerShell rejects forbidden author and committer metadata' (-not (Test-ReachableGitMetadata $metadataRepo $privatePattern)) $null
+
+    $tagRepo = Join-Path $WorkDir 'tag-metadata-leak'
+    Run-Git init -q -b main $tagRepo | Out-Null
+    Run-Git -C $tagRepo config user.name 'Metadata Acceptance' | Out-Null
+    Run-Git -C $tagRepo config user.email test@example.invalid | Out-Null
+    Set-Content (Join-Path $tagRepo 'state.txt') 'baseline'
+    Run-Git -C $tagRepo add state.txt | Out-Null
+    Run-Git -C $tagRepo commit -q -m 'chore: establish tag fixture' | Out-Null
+    try {
+        $env:GIT_COMMITTER_NAME = 'Metadata Acceptance'
+        $env:GIT_COMMITTER_EMAIL = "tagger@noreply.$forbiddenMetadataHost"
+        Run-Git -C $tagRepo tag -a metadata-fixture -m 'test: exercise forbidden tagger metadata' | Out-Null
+    }
+    finally {
+        $env:GIT_COMMITTER_NAME = $savedCommitterName
+        $env:GIT_COMMITTER_EMAIL = $savedCommitterEmail
+    }
+    Check 'PowerShell rejects forbidden tagger metadata' (-not (Test-ReachableGitMetadata $tagRepo $privatePattern)) $null
 }
 finally {
     Write-Host "`nPASS: $pass  FAIL: $fail"

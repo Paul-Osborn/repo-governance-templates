@@ -23,6 +23,20 @@ not_contains() { ! contains "$1" "$2"; }
 exists() { [ -e "$1" ]; }
 not_exists() { [ ! -e "$1" ]; }
 equals() { [ "$1" = "$2" ]; }
+fails() { ! "$@"; }
+
+reachable_metadata_is_clean() {
+  metadata_repo=$1
+  metadata_pattern=$2
+  metadata=$(
+    git -C "$metadata_repo" log --all --format='%an%n%ae%n%cn%n%ce%n%B' || exit 1
+    for tag_object in $(git -C "$metadata_repo" for-each-ref --format='%(objectname)' refs/tags); do
+      [ "$(git -C "$metadata_repo" cat-file -t "$tag_object")" = tag ] || continue
+      git -C "$metadata_repo" cat-file tag "$tag_object" || exit 1
+    done
+  ) || return 2
+  ! printf '%s\n' "$metadata" | grep -Eiq "$metadata_pattern"
+}
 
 for tool in git jq sha256sum gitleaks lefthook; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Missing test prerequisite: $tool" >&2; exit 2; }
@@ -273,6 +287,33 @@ done
 check 'manifest hashes match every shipped template' test "$manifest_bad" -eq 0
 private_pattern='tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini''sforum|server-router/''routes'
 check 'kit contains no private server topology markers' sh -c "! grep -R -E '$private_pattern' '$kit' --exclude-dir=.git >/dev/null"
+check 'reachable Git metadata contains no private infrastructure markers' reachable_metadata_is_clean "$kit" "$private_pattern"
+
+metadata_repo="$work/metadata-leak"
+git init -q -b main "$metadata_repo"
+git -C "$metadata_repo" config user.name 'Metadata Acceptance'
+git -C "$metadata_repo" config user.email test@example.invalid
+printf 'baseline\n' > "$metadata_repo/state.txt"
+git -C "$metadata_repo" add state.txt
+git -C "$metadata_repo" commit -q -m 'chore: establish metadata fixture'
+printf 'identity leak\n' >> "$metadata_repo/state.txt"
+git -C "$metadata_repo" add state.txt
+forbidden_metadata_host='fixture.''tailacceptance''.ts.net'
+GIT_AUTHOR_NAME='Metadata Acceptance' GIT_AUTHOR_EMAIL="author@noreply.$forbidden_metadata_host" \
+GIT_COMMITTER_NAME='Metadata Acceptance' GIT_COMMITTER_EMAIL="committer@noreply.$forbidden_metadata_host" \
+  git -C "$metadata_repo" commit -q -m 'test: exercise forbidden identity metadata'
+check 'forbidden author and committer metadata is rejected' fails reachable_metadata_is_clean "$metadata_repo" "$private_pattern"
+
+tag_repo="$work/tag-metadata-leak"
+git init -q -b main "$tag_repo"
+git -C "$tag_repo" config user.name 'Metadata Acceptance'
+git -C "$tag_repo" config user.email test@example.invalid
+printf 'baseline\n' > "$tag_repo/state.txt"
+git -C "$tag_repo" add state.txt
+git -C "$tag_repo" commit -q -m 'chore: establish tag fixture'
+GIT_COMMITTER_NAME='Metadata Acceptance' GIT_COMMITTER_EMAIL="tagger@noreply.$forbidden_metadata_host" \
+  git -C "$tag_repo" tag -a metadata-fixture -m 'test: exercise forbidden tagger metadata'
+check 'forbidden tagger metadata is rejected' fails reachable_metadata_is_clean "$tag_repo" "$private_pattern"
 check 'all shell entry points parse' sh -c "sh -n '$kit'/*.sh '$kit'/*.template.sh '$kit'/scripts/ci/*.sh"
 
 printf '\nPASS: %s  FAIL: %s\n' "$pass" "$fail"
