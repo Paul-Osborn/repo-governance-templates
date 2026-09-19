@@ -8,7 +8,8 @@ Thanks for helping out. A few ground rules keep things clean:
 ## Workflow
 1. **Branch first** — never commit to `main`. Use `git switch -c <type>/<short-desc>`
    (`feat/`, `fix/`, `docs/`, `chore/`, `refactor/`).
-2. **One logical change per branch / PR.** A fix and a refactor are separate PRs.
+2. **One cohesive deliverable per branch / PR.** Include the tests, documentation, and small
+   supporting refactors required to ship it; defer unrelated work.
 3. **Open a pull request** describing *what* changed, *why*, and *how you tested it*.
 4. A PR must build / run / pass tests and the pre-commit checks before it can merge.
 

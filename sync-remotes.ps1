@@ -209,6 +209,7 @@ foreach ($c in $behind) {
             if ($dirty) {
                 Write-Host "  skipped local: '$Branch' is checked out and has uncommitted changes." -ForegroundColor Yellow
                 Write-Host "                 Commit or stash them, then run this again." -ForegroundColor Yellow
+                $failed += 'local'
                 continue
             }
             Invoke-Git merge --ff-only $newest.Sha --quiet 2>$null | Out-Null

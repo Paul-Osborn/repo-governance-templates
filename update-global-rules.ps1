@@ -45,7 +45,7 @@ $BEGIN = '<!-- BEGIN repo-governance (managed) -->'
 $END   = '<!-- END repo-governance (managed) -->'
 
 # The governance content, assembled from the files in global/. Edit those, not this script.
-$sources = @('global/new-project-bootstrap.md', 'global/server-rules.md', 'global/hardware-specs.md')
+$sources = @('global/new-project-bootstrap.md')
 $parts = @()
 foreach ($s in $sources) {
     $path = Join-Path $kit $s

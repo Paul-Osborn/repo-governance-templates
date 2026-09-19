@@ -1,3 +1,5 @@
+# LEGACY V2 OPTIONAL ADAPTER. V3 does not install this by default; unattended commits/pushes are
+# agent ergonomics, not a governance control.
 # Stop hook: safety net that auto-commits and pushes leftover work when a turn ends.
 # Keeps git hands-off -- work is never left uncommitted or unpushed. It is a backstop;
 # the agent should still commit deliberately with good messages during the turn.

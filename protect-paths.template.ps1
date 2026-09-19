@@ -1,3 +1,4 @@
+# LEGACY V2 OPTIONAL ADAPTER. V3 does not install this by default and does not rely on it.
 # PreToolUse hook: block edits/writes to protected files and folders.
 # Stops an agent from touching files that should only change deliberately
 # (the governance gates, CI config, this hook itself, etc.).
@@ -16,6 +17,13 @@ $ErrorActionPreference = 'Stop'
 $protected = @(
     '(^|[\\/])\.git[\\/]',
     '(^|[\\/])\.github[\\/]workflows[\\/]',
+    '(^|[\\/])\.github[\\/]CODEOWNERS$',
+    '(^|[\\/])\.github[\\/]governance-profile\.json$',
+    '(^|[\\/])\.governance[\\/]',
+    '(^|[\\/])governance-manifest\.json$',
+    '(^|[\\/])governance-policy\.template\.json$',
+    '(^|[\\/])(new-governed-repo|update-governance|update-global-rules|github-governance|sync-remotes)\.(sh|ps1)$',
+    '(^|[\\/])github[\\/]',
     '(^|[\\/])\.claude[\\/]hooks[\\/]',
 
     # The agent must not be able to widen its own permission allowlist.

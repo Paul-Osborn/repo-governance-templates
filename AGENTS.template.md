@@ -1,203 +1,83 @@
-# Working agreement for AI agents — <PROJECT_NAME>
+# Working agreement — <PROJECT_NAME>
 
-> **How to use this template:** copy to your repo root as `AGENTS.md` and replace the
-> `<...>` placeholders. This is the file every coding agent reads, so it governs whichever
-> agent you use. Keep it SHORT — a long rules file gets skimmed and then ignored. Rationale,
-> edge cases and recovery procedures live in `REPO_RULES.md`.
+This is the canonical repository policy for people and coding agents. Nested `AGENTS.md`
+files may add instructions for their directory, but may not weaken this file. When rules
+conflict, the closest file controls ordinary implementation detail and this root file controls
+security, governance, and authority.
 
-These are your standing instructions. Read them as rules, not background.
+## Project and commands
 
-## What this project is
-
-<One or two lines: what it does and its intended shape — e.g. "a single Python CLI under
-`src/`", "a small Electron app", "a library, stdlib only".>
-
-## How to run it
+<One or two lines describing the project, its intended shape, and its boundaries.>
 
 - Install: `<command>`
 - Run: `<command>`
 - Test: `<command>`
 - Lint / format: `<command>`
 
-> Only list what you can't guess.
+Only list commands and constraints that are not obvious from the repository.
 
-## Autonomy — decide, don't ask
+## Autonomy and scope
 
-Once the owner has approved **what you are building**, carry it out. Implementation decisions
-are yours — layout, naming, which library call, what to test first. Don't have them
-reconfirmed.
+Once the owner approves the outcome, make ordinary implementation decisions and execute them.
+For meaningful work, plan once: name the files likely to change, what is out of scope, and the
+evidence that will prove completion. Use `SPEC.md` for substantial work; skip that ceremony for
+trivial changes.
 
-Plan first, but plan once. Before anything beyond a one-line edit, write a short plan: which
-files change, what's out of scope, how you'll prove it works. That is scope control, not a
-second round of permission.
+Stop for a decision that materially changes product scope, cost, privacy/security boundaries,
+credentials, production/shared infrastructure, a major architecture or dependency, destructive
+or hard-to-reverse state, or these rules and the limits of your authority.
 
-**Stop and ask only when the decision materially changes one of these:**
+One branch carries one cohesive, shippable deliverable. Include its tests and necessary docs;
+defer unrelated cleanup.
 
-- what the product does, or the scope of the project
-- money — spending, subscriptions, anything billable
-- privacy or security boundaries; credentials
-- something destructive or hard to reverse (deleting data, rewriting history, force-push)
-- a shared or production server's routing, ingress, topology, or a consequential reboot
-- a major architectural direction, or a significant dependency the approved plan didn't imply
-- these rules, or the limits of your own authority
+## Git and pull requests
 
-Everything else: proceed, and say what you did.
+1. Branch before changing files; never commit or push directly to the protected default branch.
+2. Use Conventional Commits with an imperative subject of at most 72 characters. Keep logical
+   commits reviewable and explain why in the body when it is not obvious.
+3. Run the smallest relevant checks while working and the complete relevant suite before review.
+4. Push completed work to the authoritative remote and any configured mirrors without force.
+5. Obtain independent review for normal and high-risk work. A deterministically prose-only change
+   is exempt. Review must cover the exact code state submitted.
+6. Open a pull request with the outcome, test evidence, migration notes, and limitations. Never
+   merge red. Never bypass required checks.
+7. A change to a governance/control file is a proposal only. An agent may author and submit it,
+   but only the human owner may ratify or merge it.
 
-`PRD.md` is the project brief (what we're building and why). `SPEC.md` is the plan for one
-feature — copy `SPEC.template.md` for anything substantial. Keep both current.
+No remote means commit locally and report what could not be pushed or reviewed remotely.
 
-## Git is automatic — you own it, don't ask
+## Engineering rules
 
-The commands are pre-allowed. Never ask permission for any of this.
+Build the smallest complete solution: prefer no change, an existing capability, the platform or
+standard library, an installed dependency, then small new code. Add a dependency only with a
+one-line reason. Do not trade away correctness, security, accessibility, maintainability, or
+explicit requirements for a smaller diff.
 
-1. **Branch first, always.** `git switch -c <type>/<short-desc>` (`feat/`, `fix/`, `docs/`,
-   `chore/`, `refactor/`). Commits on `main` are physically blocked, so this isn't optional.
-2. **Commit as you go**, [Conventional Commits](https://www.conventionalcommits.org):
-   imperative subject ≤ 72 chars, body explains *why*. One logical change per commit.
-3. **Push as you commit.** If the repo has several remotes, push completed work to all of
-   them — `sync-remotes.ps1` does it in one step. One remote is authoritative; the rest are
-   mirrors that must reflect finished work.
-4. **Review, then open the PR.** See "Review" below.
-5. **Merge when green**, and merge the branch you have checked out — `gh pr merge --squash
-   --delete-branch`, no PR number. The review and authority checks read your local branch, so
-   merging a *different* PR by number would approve code nothing checked. Never merge red.
-   Never `--admin`. **A PR touching governance/rule files is the owner's to merge — post the
-   link and stop.**
-6. **No remote?** Branch and commit locally; skip push and PR.
+- Never put secrets in code, config, history, logs, prompts, test fixtures, or commit messages.
+- Never hand-edit generated lockfiles; change the manifest and regenerate them.
+- Do not disable or route around hooks, scanners, CI, reviews, or hosting protections.
+- Do not rewrite shared history, force-push protected branches, or use administrative bypasses.
+- Keep one authoritative source of truth; mirrors must not silently diverge.
+- <Project-specific hard constraints.>
 
-A safety net auto-commits and pushes leftovers when a turn ends, so work is never lost — but
-commit deliberately rather than relying on it.
+## Review and evidence
 
-## One cohesive deliverable per branch
+Stabilize the branch before independent review. The implementer cannot count a self-review as
+independent. Any behavior-changing change after review invalidates it; deterministically
+classified prose-only follow-ups may remain exempt. Record the reviewer, verdict, and exact state
+reviewed using the repository's configured attestation method.
 
-A branch carries one complete, shippable thing: the implementation, its tests, the supporting
-fixes it genuinely needs, small supporting refactors, and its docs.
+Completion requires evidence: the command and result, test output, or another observable proof.
+Update `WORKLOG.md` only when work materially advances or leaves context another session needs;
+do not add filler or make a commit solely for the log.
 
-Split when the work becomes independently useful on its own, or its objective has materially
-changed. Defer unrelated cleanup. Avoid both extremes — a chain of micro-PRs nobody can
-follow, and one branch holding three unrelated projects.
+## Control boundaries
 
-## Lean engineering — build the smallest complete solution
+- `AGENTS.md` guides behavior; it is not a security boundary.
+- Lefthook and `scripts/hooks/` provide local enforcement for every tool and manual commit.
+- `.github/workflows/` and the hosting policy provide independent remote enforcement.
+- Agent adapters may add convenience or defense in depth, but do not define core authority.
+- If a required control fails or its result cannot be determined safely, stop and report it.
 
-Before adding code or a dependency, take the highest option that actually works:
-
-1. no change at all — the requirement is already satisfied
-2. something this project already has
-3. a platform / native capability (`<input type="date">` over a date-picker library, a CSS
-   rule over JavaScript, a database constraint over application code)
-4. the standard library
-5. a dependency already installed
-6. a small amount of new code
-7. a new dependency — only with a reason you can state in one line
-
-Don't write abstractions with one caller, config for a value that never varies, extension
-points nobody asked for, frameworks for tiny tasks, or code that exists because it might be
-useful one day. Delete rather than add; boring rather than clever.
-
-Never trade away correctness, security, validation at trust boundaries, error handling that
-prevents data loss, accessibility, maintainability, or anything explicitly requested, just to
-write fewer lines. Lean means less code, not a flimsier result.
-
-## Subagents — direct execution is the default
-
-Do the work yourself. Spawn a subagent only for:
-
-- genuinely parallel work that doesn't depend on state you're still changing, or
-- the one independent final review (below).
-
-Never spawn one to read files, search the repo, run tests, write docs, or implement step by
-step. Subagents never spawn subagents. Ordinary work means zero implementation subagents and
-at most one reviewer.
-
-## Review
-
-Implement → self-check → targeted verification → stabilise the branch → broader verification →
-**one** `code-reviewer` review → fix what's valid → open the PR. Re-review only if your fixes
-materially changed what was reviewed.
-
-Don't run a reviewer while the implementation is still moving.
-
-- **Trivial** (typo, small doc fix, cosmetic change with a deterministic check): no reviewer.
-  A branch touching only prose files is exempt automatically. Prose means the file TYPE
-  (`.md`, `.txt`, `.rst`), not the folder — a script under `docs/` is code like any other.
-- **Normal:** one independent review.
-- **High risk** — auth, permissions, credentials, privacy, payments, destructive data
-  operations, migrations, deployment, governance: one independent review, always.
-
-Record the outcome in `.claude/review/receipt.json`. The gate checks it against the actual
-code, so prose commits after a review don't invalidate it and code commits do — and it
-re-checks at merge, so code pushed after the review blocks the merge too.
-
-## Verification — prove it, don't repeat it
-
-While working, run the smallest check that would catch what you just broke — not the whole
-suite after every edit. At a meaningful boundary (branch stable, before review, before the
-PR), run the broad checks plus any deployment or acceptance checks. High-risk work gets broad
-verification regardless.
-
-"Looks done" is not done. Show the command and what it returned. More test runs is not better
-verification.
-
-## How to talk to the owner
-
-He runs this project and makes the calls, but he is **not a programmer** — he does not read
-code and does not know infrastructure vocabulary.
-
-- Never hand him a bare technical term as an instruction. Say what it does, why it matters to
-  him, and the actual steps — which screen, which button. Gloss tool names on first use.
-- Lead with what it means for him; cut detail that wouldn't change what he does.
-- If he asks "what is that", the explanation wasn't clear — rewrite it plainly rather than
-  adding words around the same jargon.
-
-Keep progress reports short. Don't restate the plan, don't narrate each tool call, don't stop
-to announce that a routine step worked. Say what changed, what matters, what failed, and what
-he needs to decide — then keep going until genuinely blocked. Expand only when it helps him
-decide. Plain language means clearer, not vaguer, and never means softening bad news.
-
-## Commands you hand the user
-
-This machine runs **Windows PowerShell 5.1**. Every command must run as written in the shell
-you tagged it for — never mix shells in one line.
-
-- PowerShell 5.1 has **no `&&` or `||`** (parse error, not a fallback). Sequential: `A; B`.
-  Conditional: `A; if ($?) { B }`. No ternary, `??` or `?.` either.
-- No bash syntax (`printf`, `cat`, `export`, `$VAR`, `~`, `2>/dev/null`, heredocs) in a
-  PowerShell command, and no `$env:VAR` in a bash one. Mixed lines run in neither shell.
-- A ```` ```bash ```` fence must contain valid bash; use ```` ```powershell ```` otherwise.
-- Read a multi-part command back and ask which shell parses it. If the answer is "neither",
-  rewrite it. Prefer one short command over a chain.
-
-## Hard lines
-
-- **Secrets.** Never put a key, token or password in code, config, or a commit message. The
-  scanner blocks it — fix the cause, don't route around it.
-- **Lockfiles.** Never hand-edit `package-lock.json`, `poetry.lock` or similar. Change the
-  manifest and let the package manager regenerate them, in the same commit.
-- **Guardrails.** Don't disable or work around one to get unblocked. If a gate is genuinely
-  wrong, that's a rule change: raise it, don't route around it.
-- <Project constraints — e.g. "local-only, no telemetry, pinned deps". Full list in `REPO_RULES.md`.>
-
-## Before ending a turn
-
-- **Show your evidence** — the test output, the command and its result, a screenshot.
-- **Update `WORKLOG.md`** when work materially advances or you reach a checkpoint another
-  session would need. Keep it short and link to the PR or spec instead of repeating it. Don't
-  write an entry for a trivial change, and don't make a commit purely to add one.
-
-## Guardrails (enforced automatically, not by memory)
-
-- Commit/push on `main` — blocked.
-- Commits containing secrets — blocked.
-- Newly added files over the size limit — blocked.
-- `--no-verify` and `--admin` — blocked.
-- Edits to the rules and gates themselves — blocked.
-- PRs with unreviewed code changes — blocked at open **and** at merge.
-- Merging red, or merging a governance PR — blocked.
-- Leftover work at end of turn — auto-committed and pushed.
-
-## Quick reference
-
-- Full rules and rationale: `REPO_RULES.md`
-- Project brief: `PRD.md` · Feature plan: `SPEC.md` · Running log: `WORKLOG.md`
-- Governance generation this repo uses: `.governance-version`
-- <Design doc / debug playbook: `<path>`>
+Details, recovery procedures, the control matrix, and platform notes live in `REPO_RULES.md` and
+`docs/`. Governance generation: `.governance-version`.

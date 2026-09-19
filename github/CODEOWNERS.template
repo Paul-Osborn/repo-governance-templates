@@ -1,0 +1,31 @@
+# Replace <owner> during bootstrap with the GitHub login that may ratify governance changes.
+# Only trust-root paths are listed so prose-only and ordinary non-governance changes are not forced
+# through owner review. Substantive code review is enforced by the exact-head status instead.
+/AGENTS.md @<owner>
+/REPO_RULES.md @<owner>
+/.governance-version @<owner>
+/.governance/ @<owner>
+/governance-manifest.json @<owner>
+/governance-policy.template.json @<owner>
+/new-governed-repo.sh @<owner>
+/new-governed-repo.ps1 @<owner>
+/update-governance.sh @<owner>
+/update-governance.ps1 @<owner>
+/update-global-rules.sh @<owner>
+/update-global-rules.ps1 @<owner>
+/github-governance.sh @<owner>
+/github-governance.ps1 @<owner>
+/sync-remotes.sh @<owner>
+/sync-remotes.ps1 @<owner>
+/github/ @<owner>
+/lefthook.yml @<owner>
+/.gitleaks.toml @<owner>
+/scripts/hooks/ @<owner>
+/scripts/ci/ @<owner>
+/.github/workflows/ @<owner>
+/.github/CODEOWNERS @<owner>
+/.github/governance-profile.json @<owner>
+/CLAUDE.md @<owner>
+/GEMINI.md @<owner>
+/.cursor/ @<owner>
+/.claude/ @<owner>

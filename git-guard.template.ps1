@@ -1,4 +1,8 @@
-# PreToolUse hook (Bash): every git/PR policy for this repo, in one place.
+# LEGACY V2 OPTIONAL ADAPTER. V3 does not install this by default. It may provide Claude Code
+# ergonomics on Windows, but critical V3 enforcement lives in Git hooks, CI, GitHub protection,
+# and human ratification. Do not treat this file as an independent security boundary.
+#
+# PreToolUse hook (Bash): V2 git/PR policy for Claude Code, in one place.
 #
 # INSTALL: copy to `.claude/hooks/git-guard.ps1` and point .claude/settings.json at it.
 #
@@ -79,6 +83,13 @@ $GovernancePatterns = @(
     '^\.claude/',
     '^\.cursor/',
     '^\.github/workflows/',
+    '^\.github/CODEOWNERS$',
+    '^\.github/governance-profile\.json$',
+    '^\.governance/',
+    '^governance-manifest\.json$',
+    '^governance-policy\.template\.json$',
+    '^(new-governed-repo|update-governance|update-global-rules|github-governance|sync-remotes)\.(sh|ps1)$',
+    '^github/',
     '^scripts/hooks/',
     '^lefthook\.yml$',
     '^\.gitleaks\.toml$',
@@ -133,7 +144,7 @@ function Get-BaseCommit {
 # ---------------------------------------------------------------------------
 # Stops `>` / `>>` from overwriting a governance file, which would sidestep
 # protect-paths.ps1 entirely (that hook only sees Edit/Write, not Bash).
-if ($cmdClean -match '>>?\s*[''"]?(\.claude/|\.github/|scripts/hooks/|AGENTS\.md|REPO_RULES\.md|CLAUDE\.md|GEMINI\.md|lefthook\.yml|\.gitleaks\.toml|\.governance-version)') {
+if ($cmdClean -match '>>?\s*[''"]?(\.claude/|\.github/|\.governance/|github/|scripts/(hooks|ci)/|AGENTS\.md|REPO_RULES\.md|CLAUDE\.md|GEMINI\.md|lefthook\.yml|\.gitleaks\.toml|\.governance-version|governance-manifest\.json|governance-policy\.template\.json|(new-governed-repo|update-governance|update-global-rules|github-governance|sync-remotes)\.(sh|ps1))') {
     Deny @"
 Refused: shell redirection ('>' or '>>') targeting a governance path is blocked.
 

@@ -1,39 +1,28 @@
-<!-- CANONICAL "new project" bootstrap instruction.
-     This same block is installed into each agent's GLOBAL (user-level) config so that any
-     agent, in any folder, governs a new project automatically before writing code.
-     Edit it here, then re-copy to the per-agent locations listed in this folder's README. -->
+# Starting a new project — governance before code
 
-# Starting a new project — auto-governance bootstrap
+Apply this only when the user is creating a new project and the current folder has no `AGENTS.md`.
+Never re-scaffold an existing governed project.
 
-**Applies only when BOTH are true:** (a) the user is asking to start or build a **new** project,
-and (b) the current folder has **no `AGENTS.md`** file. If `AGENTS.md` already exists, the
-project is already governed — just read and follow it; do **not** re-scaffold. Never run this
-for questions, or in a folder that is clearly an existing project.
+Before product code:
 
-When it applies, do this **before** writing any project code:
+1. Locate the Repo Governance kit from `REPO_GOVERNANCE_HOME`. If it is unset, report that instead
+   of guessing a path.
+2. Scaffold governance with the command for the current platform:
 
-1. **Scaffold governance.** Run:
-
-   ```powershell
-   powershell -NoProfile -File "$env:REPO_GOVERNANCE_HOME\new-governed-repo.ps1" -Target . -Name "<short project name>"
+   ```sh
+   "$REPO_GOVERNANCE_HOME/new-governed-repo.sh" --target . --name "<project name>"
    ```
 
-   It copies the rule files + hooks and runs `git init` and `lefthook install`. It skips files
-   that already exist, so it is safe.
+   ```powershell
+   & "$env:REPO_GOVERNANCE_HOME\new-governed-repo.ps1" -Target . -Name "<project name>"
+   ```
 
-   If `REPO_GOVERNANCE_HOME` is not set, stop and say so plainly rather than guessing at a
-   path. Set it once with:
-   `[Environment]::SetEnvironmentVariable('REPO_GOVERNANCE_HOME', '<path to the kit>', 'User')`
+3. Establish `PRD.md`: problem, outcome, users, scope/non-goals, constraints, privacy/security,
+   success criteria, and important risks. Ask only for missing owner decisions.
+4. Fill project-specific placeholders in `AGENTS.md` and `REPO_RULES.md`. Configure
+   `scripts/ci/project-checks.sh` with real lint/test/build commands.
+5. Branch before the first commit. Commit governance and the brief before product code. Configure
+   the remote policy in plan mode before applying it.
 
-2. **Write the project brief (PRD).** Interview the user — the problem, the goal, target users,
-   scope in/out, hard constraints, security/privacy needs, success criteria, risks — and write
-   their answers into `PRD.md`. Ask, don't assume.
-
-3. **Fill governance from the brief.** Use the PRD answers to replace the `<PLACEHOLDER>`s in
-   `AGENTS.md` and `REPO_RULES.md` (what the project is, the hard constraints, etc.).
-
-4. **First commit, by the rules.** Branch first (never `main`); commit `.gitignore` first, then
-   the governance files and `PRD.md`, using Conventional Commit messages. Open a PR if there is
-   a remote, get a review receipt from a reviewer subagent, and merge once CI is green (`gh pr merge --squash --delete-branch`).
-
-Then proceed with the user's actual task, governed by `AGENTS.md`.
+Use a bounded `SPEC.md` for substantial work, not for trivial edits. Do not require a cloud service,
+Claude Code, Codex, or a heavyweight specification framework to create the repository.
