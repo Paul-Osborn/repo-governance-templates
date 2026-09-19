@@ -38,6 +38,16 @@ reachable_metadata_is_clean() {
   ! printf '%s\n' "$metadata" | grep -Eiq "$metadata_pattern"
 }
 
+reachable_content_is_clean() {
+  content_repo=$1
+  content_pattern=$2
+  for object in $(git -C "$content_repo" rev-list --objects --all | awk '{print $1}' | sort -u); do
+    [ "$(git -C "$content_repo" cat-file -t "$object")" = blob ] || continue
+    git -C "$content_repo" cat-file blob "$object" | grep -Eiq "$content_pattern" && return 1
+  done
+  return 0
+}
+
 for tool in git jq sha256sum gitleaks lefthook; do
   command -v "$tool" >/dev/null 2>&1 || { echo "Missing test prerequisite: $tool" >&2; exit 2; }
 done
@@ -285,8 +295,9 @@ jq -c '.files[]' "$kit/governance-manifest.json" | while IFS= read -r entry; do
 done
 [ -f "$work/manifest-bad" ] && manifest_bad=1
 check 'manifest hashes match every shipped template' test "$manifest_bad" -eq 0
-private_pattern='tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini''sforum|server-router/''routes'
-check 'kit contains no private server topology markers' sh -c "! grep -R -E '$private_pattern' '$kit' --exclude-dir=.git >/dev/null"
+private_pattern='tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini''sforum|tail''scale|server-''router/[0-9A-Za-z]|/var/back''ups/|home por''tal|loopback dash''board'
+check 'kit contains no private server topology markers' sh -c "! grep -R -Ei '$private_pattern' '$kit' --exclude-dir=.git >/dev/null"
+check 'reachable Git blobs contain no private infrastructure markers' reachable_content_is_clean "$kit" "$private_pattern"
 check 'reachable Git metadata contains no private infrastructure markers' reachable_metadata_is_clean "$kit" "$private_pattern"
 
 metadata_repo="$work/metadata-leak"
@@ -314,6 +325,21 @@ git -C "$tag_repo" commit -q -m 'chore: establish tag fixture'
 GIT_COMMITTER_NAME='Metadata Acceptance' GIT_COMMITTER_EMAIL="tagger@noreply.$forbidden_metadata_host" \
   git -C "$tag_repo" tag -a metadata-fixture -m 'test: exercise forbidden tagger metadata'
 check 'forbidden tagger metadata is rejected' fails reachable_metadata_is_clean "$tag_repo" "$private_pattern"
+
+sibling_repo="$work/sibling-content-leak"
+git init -q -b main "$sibling_repo"
+git -C "$sibling_repo" config user.name 'Content Acceptance'
+git -C "$sibling_repo" config user.email test@example.invalid
+printf 'public baseline\n' > "$sibling_repo/state.txt"
+git -C "$sibling_repo" add state.txt
+git -C "$sibling_repo" commit -q -m 'chore: establish content fixture'
+git -C "$sibling_repo" switch -q -c feat/stale-private-content
+forbidden_content='private tail''scale ingress'
+printf '%s\n' "$forbidden_content" > "$sibling_repo/private.txt"
+git -C "$sibling_repo" add private.txt
+git -C "$sibling_repo" commit -q -m 'test: exercise sibling branch content scan'
+git -C "$sibling_repo" switch -q main
+check 'forbidden content on a sibling branch is rejected' fails reachable_content_is_clean "$sibling_repo" "$private_pattern"
 check 'all shell entry points parse' sh -c "sh -n '$kit'/*.sh '$kit'/*.template.sh '$kit'/scripts/ci/*.sh"
 
 printf '\nPASS: %s  FAIL: %s\n' "$pass" "$fail"
