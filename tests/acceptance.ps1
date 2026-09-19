@@ -34,6 +34,26 @@ function Test-ReachableGitMetadata([string]$Repository, [string]$Pattern) {
     }
     finally { $ErrorActionPreference = $old }
 }
+function Test-ReachableGitContent([string]$Repository, [string]$Pattern) {
+    $old = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $objects = @(& git -C $Repository rev-list --objects --all 2>&1)
+        if ($LASTEXITCODE -ne 0) { return $false }
+        foreach ($objectLine in $objects) {
+            $object = ($objectLine -split ' ', 2)[0]
+            $objectType = (& git -C $Repository cat-file -t $object 2>&1 | Out-String).Trim()
+            if ($LASTEXITCODE -ne 0) { return $false }
+            if ($objectType -eq 'blob') {
+                $content = (& git -C $Repository cat-file blob $object 2>&1 | Out-String)
+                if ($LASTEXITCODE -ne 0) { return $false }
+                if ($content -match $Pattern) { return $false }
+            }
+        }
+        return $true
+    }
+    finally { $ErrorActionPreference = $old }
+}
 
 foreach ($tool in @('git', 'sh', 'lefthook', 'gitleaks')) {
     if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "Missing test prerequisite: $tool" }
@@ -106,7 +126,8 @@ try {
     $again = & (Join-Path $kit 'update-governance.ps1') -Target $legacy *>&1 | Out-String
     Check 'PowerShell migration is idempotent' ($again -match 'Already current') $again
 
-    $privatePattern = 'tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini' + 'sforum|server-router/' + 'routes'
+    $privatePattern = 'tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini' + 'sforum|tail' + 'scale|server-' + 'router/[0-9A-Za-z]|/var/back' + 'ups/|home por' + 'tal|loopback dash' + 'board'
+    Check 'PowerShell reachable Git blobs contain no private infrastructure markers' (Test-ReachableGitContent $kit $privatePattern) $null
     Check 'PowerShell reachable Git metadata contains no private infrastructure markers' (Test-ReachableGitMetadata $kit $privatePattern) $null
 
     $metadataRepo = Join-Path $WorkDir 'metadata-leak'
@@ -155,6 +176,21 @@ try {
         $env:GIT_COMMITTER_EMAIL = $savedCommitterEmail
     }
     Check 'PowerShell rejects forbidden tagger metadata' (-not (Test-ReachableGitMetadata $tagRepo $privatePattern)) $null
+
+    $siblingRepo = Join-Path $WorkDir 'sibling-content-leak'
+    Run-Git init -q -b main $siblingRepo | Out-Null
+    Run-Git -C $siblingRepo config user.name 'Content Acceptance' | Out-Null
+    Run-Git -C $siblingRepo config user.email test@example.invalid | Out-Null
+    Set-Content (Join-Path $siblingRepo 'state.txt') 'public baseline'
+    Run-Git -C $siblingRepo add state.txt | Out-Null
+    Run-Git -C $siblingRepo commit -q -m 'chore: establish content fixture' | Out-Null
+    Run-Git -C $siblingRepo switch -q -c feat/stale-private-content | Out-Null
+    $forbiddenContent = 'private tail' + 'scale ingress'
+    Set-Content (Join-Path $siblingRepo 'private.txt') $forbiddenContent
+    Run-Git -C $siblingRepo add private.txt | Out-Null
+    Run-Git -C $siblingRepo commit -q -m 'test: exercise sibling branch content scan' | Out-Null
+    Run-Git -C $siblingRepo switch -q main | Out-Null
+    Check 'PowerShell rejects forbidden content on a sibling branch' (-not (Test-ReachableGitContent $siblingRepo $privatePattern)) $null
 }
 finally {
     Write-Host "`nPASS: $pass  FAIL: $fail"
