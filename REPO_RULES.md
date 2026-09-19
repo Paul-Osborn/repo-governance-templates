@@ -105,6 +105,14 @@ head SHA and whose reviewer is not the PR author. Any later behavior-changing co
 and invalidates the check. Branch/ruleset settings should dismiss stale approvals and require the
 last push to be approved by someone else. CI re-checks this immediately before merge.
 
+A repository may opt out entirely by setting `review.requireIndependentReview` to `false` in
+`governance-profile.json`. This is meant for solo maintainers or AI-authored work with no second
+human available; the reusable template ships this `true` by default. The workflow reads the flag
+from the base branch's committed profile, never the pull request's own copy, so a PR cannot flip
+it to escape review on itself. The `governance/exact-head-review` status still runs and posts on
+every PR while the flag is off, but always succeeds, leaving a visible, auditable record of the
+choice rather than silently removing the check.
+
 For hosts without review APIs, `.governance/review-attestation.json` may record a deterministic
 code digest. `scripts/ci/verify-review.sh` recomputes it. This proves which bytes were reviewed,
 but it is not cryptographically independent: anyone able to write the branch can fabricate the

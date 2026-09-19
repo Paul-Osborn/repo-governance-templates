@@ -19,7 +19,8 @@
     "requireConversationResolution": true,
     "statusContext": "governance/exact-head-review",
     "preferredTrustedIntegrationId": 15368,
-    "externalReviewerAppId": null
+    "externalReviewerAppId": null,
+    "requireIndependentReview": true
   },
   "history": {
     "requirePullRequest": true,

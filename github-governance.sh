@@ -32,6 +32,7 @@ ruleset_name=$(jq -r .rulesetName "$profile")
 review_context=$(jq -r '.review.statusContext' "$profile")
 default_integration_id=$(jq -r '.review.preferredTrustedIntegrationId' "$profile")
 reviewer_app_id=$(jq -r '.review.externalReviewerAppId // empty' "$profile")
+require_review=$(jq -r '.review.requireIndependentReview as $v | if $v == null then true else $v end' "$profile")
 
 rulesets_tmp=$(mktemp)
 err_tmp=$(mktemp)
@@ -53,7 +54,9 @@ echo "  required checks:"
 while IFS= read -r check; do
   [ -n "$check" ] || continue
   if [ "$check" = "$review_context" ]; then
-    if [ -n "$reviewer_app_id" ]; then
+    if [ "$require_review" = "false" ]; then
+      echo "    - $check (independent review not required by policy; this check always succeeds)"
+    elif [ -n "$reviewer_app_id" ]; then
       echo "    - $check (integration_id $reviewer_app_id, dedicated reviewer App)"
     else
       echo "    - $check (integration_id $default_integration_id, default Actions identity; no reviewer App configured yet)"

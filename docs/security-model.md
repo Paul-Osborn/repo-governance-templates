@@ -72,6 +72,20 @@ attestation file and verifier live in the repository, an implementation agent wi
 access can fabricate both. It is useful evidence for hosts without an API, not cryptographic
 independence and not authority to merge governance.
 
+## Optional independent-review opt-out
+
+`review.requireIndependentReview` in `governance-profile.json` defaults to `true`. An owner who
+sets it to `false` is stating, in a durable and auditable file, that no second human reviewer is
+available for this repository — typically a solo maintainer doing AI-authored work. The review-gate
+workflow reads this flag from `.github/governance-profile.json` at the pull request's base SHA, the
+same base-ref-only pattern used for `trustRootPaths`, so a pull request cannot weaken this setting
+in its own diff to escape review for itself; only a change merged to the protected default branch
+takes effect. When the flag is `false`, `governance/exact-head-review` still runs and posts on every
+PR, but always succeeds, so the choice remains visible on every PR rather than disappearing along
+with the check. This is a documented reduction of the review boundary, not a bypass of it: the
+`governance-profile.json` change that sets the flag is itself a governance/control-file change and
+so is a proposal only an owner can ratify, per `AGENTS.md`.
+
 ## Fail direction
 
 Merge-critical capability, review, path classification, and governance consistency checks fail
