@@ -16,14 +16,23 @@
   `.github/governance-profile.json` was in CODEOWNERS and the git-guard fallback but missing
   from the canonical `trustRootPaths`. `validate-governance.sh` now deterministically compares
   CODEOWNERS and the git-guard fallback against the canonical policy and fails closed on drift in
-  either direction.
+  either direction. An independent review of the first pass found that `git-guard.template.ps1`'s
+  new "preferred" policy read still read `.governance/policy.json` off the working tree/HEAD, so
+  a branch could still shrink its own policy locally and hide its own edit from the PowerShell
+  adapter's authority ceiling and review-receipt gate (confirmed by re-running the attack against
+  the pre-fix file: `AGENTS.md` never appeared in either check's output). Fixed to read the
+  policy from the branch's base commit via `git show`, matching `classify-change.sh`, with a new
+  executable regression test in `tests/acceptance.ps1`.
 - **Verified by:** Linux acceptance suite (82 checks, including new trust-root fixtures proving
   CODEOWNERS drift is rejected in both directions, a policy-only trust-root addition reaches the
   classifier with no code edit, and a same-branch policy-shrink attack is defeated), PowerShell
-  7.6.6 compatibility suite on Linux (21 checks), governance structure/manifest validation in
-  both kit and installed mode, shell syntax, `git diff --check`, offline zizmor, and actionlint.
-  Native Windows execution remains pending under issue #9.
-- **Next:** independent review, then the human owner merges the PR and closes issue #8.
+  7.6.6 compatibility suite on Linux (22 checks, including the new git-guard base-read regression
+  test), governance structure/manifest validation in both kit and installed mode, shell/PowerShell
+  syntax, `git diff --check`, offline zizmor, and actionlint. An independent code-reviewer agent
+  pass and a second, targeted round on the git-guard fix. Native Windows execution remains
+  pending under issue #9.
+- **Next:** independent re-review of the git-guard fix, then the human owner merges the PR and
+  closes issue #8.
 - **Open decisions:** none for this branch; issues #9 and #10 remain separately owned.
 
 ## 2026-09-19 — V3 self-bootstrap after ratification

@@ -70,18 +70,42 @@ if ([string]::IsNullOrWhiteSpace($cmd)) { exit 0 }
 # anything shown back to the user uses the original $cmd.
 $cmdClean = $cmd -replace '"[^"]*"', '""' -replace "'[^']*'", "''"
 
+# The branch's base: the commit this work forks from. Prefer the remote default branch. Defined
+# before the trust-root block below, which needs it to read the canonical policy at base rather
+# than at the working tree or HEAD.
+function Get-BaseCommit {
+    foreach ($ref in @('origin/main', 'origin/master', 'main', 'master')) {
+        $exists = (git rev-parse --verify --quiet "$ref" 2>$null | Out-String).Trim()
+        if ($exists) {
+            $mb = (git merge-base HEAD $ref 2>$null | Out-String).Trim()
+            if ($mb) { return $mb }
+        }
+    }
+    return $null
+}
+
 # ---------------------------------------------------------------------------
 # Shared: which files are "governance" (rules, gates, authority)
 # ---------------------------------------------------------------------------
-# The installed canonical policy is preferred. The literal fallback keeps this legacy V2 adapter
-# usable before migration and is deterministically checked against governance-policy.template.json.
+# The canonical policy is read from the branch's BASE commit as a git object, never the working
+# tree or HEAD. Reading HEAD/working-tree content here would let a single branch shrink its own
+# trustRootPaths and use that shrunk definition to classify its own edit to a now-untracked
+# governance file as non-governance -- the same bypass class scripts/ci/classify-change.sh
+# closes by reading the policy at $base instead of the working tree. The literal fallback keeps
+# this legacy V2 adapter usable when no base can be resolved (e.g. no fetched default branch),
+# and is deterministically checked against governance-policy.template.json.
 $GovernancePatterns = $null
 try {
-    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Out-String).Trim()
-    $policyPath = if ($repoRoot) { Join-Path $repoRoot '.governance/policy.json' } else { $null }
-    if ($policyPath -and (Test-Path $policyPath)) {
-        $policy = Get-Content $policyPath -Raw | ConvertFrom-Json
-        $GovernancePatterns = @($policy.trustRootPaths)
+    $base = Get-BaseCommit
+    if ($base) {
+        $raw = (& git show "${base}:.governance/policy.json" 2>$null | Out-String)
+        if ([string]::IsNullOrWhiteSpace($raw)) {
+            $raw = (& git show "${base}:governance-policy.template.json" 2>$null | Out-String)
+        }
+        if (-not [string]::IsNullOrWhiteSpace($raw)) {
+            $policy = $raw | ConvertFrom-Json
+            $GovernancePatterns = @($policy.trustRootPaths)
+        }
     }
 } catch {
     $GovernancePatterns = $null
@@ -152,18 +176,6 @@ function Test-Exempt([string]$path) {
     if ($path -match '\.(md|markdown|txt|rst|adoc)$') { return $true }
     if ($path -match '(^|/)(WORKLOG|CHANGELOG|CHANGES|NOTICE|LICENCE|LICENSE|AUTHORS|CONTRIBUTORS|README)$') { return $true }
     return $false
-}
-
-# The branch's base: the commit this work forks from. Prefer the remote default branch.
-function Get-BaseCommit {
-    foreach ($ref in @('origin/main', 'origin/master', 'main', 'master')) {
-        $exists = (git rev-parse --verify --quiet "$ref" 2>$null | Out-String).Trim()
-        if ($exists) {
-            $mb = (git merge-base HEAD $ref 2>$null | Out-String).Trim()
-            if ($mb) { return $mb }
-        }
-    }
-    return $null
 }
 
 # ---------------------------------------------------------------------------
