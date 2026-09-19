@@ -60,6 +60,12 @@ try {
     finally { Pop-Location }
     Check 'Windows oversized new file is refused' ($largeCode -ne 0 -and $largeOut -match '2048 KB limit') $largeOut
 
+    $zeroSha = '0000000000000000000000000000000000000000'
+    Push-Location $repo
+    try { $rangeOut = & sh scripts/hooks/check-large-files.sh --range $zeroSha HEAD 2>&1 | Out-String; $rangeCode = $LASTEXITCODE }
+    finally { Pop-Location }
+    Check 'Windows Git shell large-file range fails closed for an all-zero base SHA' ($rangeCode -ne 0 -and $rangeOut -match 'unable to inspect added files for range') $rangeOut
+
     $legacy = Join-Path $WorkDir 'v2-project'
     New-Item -ItemType Directory -Path (Join-Path $legacy 'scripts/hooks') -Force | Out-Null
     Set-Content (Join-Path $legacy 'AGENTS.md') 'legacy policy'

@@ -14,8 +14,11 @@
       "template": "check-large-files.template.sh",
       "dest": "scripts/hooks/check-large-files.sh",
       "note": "Portable local and CI large-file gate.",
-      "sha256": "565c52a11f94f6ab6356be552e3e0d011786d3bee5627d371412ad4fbc368487",
-      "knownHashes": ["6b2a58cb0133253048bde866f24559c4043c6528ffdd3909299aa157d912b60e"]
+      "sha256": "8281e252b6104bafc2b7ed16789bb8c540fb3516a2267512d4ff6b4977cfd346",
+      "knownHashes": [
+        "565c52a11f94f6ab6356be552e3e0d011786d3bee5627d371412ad4fbc368487",
+        "6b2a58cb0133253048bde866f24559c4043c6528ffdd3909299aa157d912b60e"
+      ]
     },
     {
       "template": "check-lockfiles.template.sh",

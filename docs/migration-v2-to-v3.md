@@ -1,7 +1,8 @@
 # Migrating V2 repositories to V3
 
-V3 does not rewrite V2 history or project source. It adds/replaces only files listed in the kit
-manifest whose normalized hash matches a known shipped version.
+The V3 updater does not rewrite a target repository's V2 history or project source. It adds or
+replaces only files listed in the kit manifest whose normalized hash matches a known shipped
+version.
 
 ## Procedure
 

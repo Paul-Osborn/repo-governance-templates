@@ -84,6 +84,11 @@ check 'large-file refusal names the limit' contains "$large_output" '2048 KB lim
 git -C "$repo" reset -q HEAD -- large.bin
 rm -f "$repo/large.bin"
 
+zero_sha=0000000000000000000000000000000000000000
+range_output=$(cd "$repo" && sh scripts/hooks/check-large-files.sh --range "$zero_sha" HEAD 2>&1); range_status=$?
+check 'large-file range fails closed for an all-zero base SHA' test "$range_status" -ne 0
+check 'large-file range failure explains the invalid comparison' contains "$range_output" 'unable to inspect added files for range'
+
 printf '{"name":"fixture"}\n' > "$repo/package.json"
 printf '{"lockfileVersion":3}\n' > "$repo/package-lock.json"
 git -C "$repo" add package.json package-lock.json
