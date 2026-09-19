@@ -112,10 +112,10 @@ try {
     Set-Content (Join-Path $legacy 'AGENTS.md') 'legacy policy'
     Set-Content (Join-Path $legacy 'source.txt') 'project source'
     $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-    $v2Branch = (& git -C $kit show 'main:no-commit-on-main.template.sh') -join "`n"
-    $v2Lefthook = (& git -C $kit show 'main:lefthook.template.yml') -join "`n"
-    [IO.File]::WriteAllText((Join-Path $legacy 'scripts/hooks/no-commit-on-main.sh'), $v2Branch + "`n", $utf8NoBom)
-    [IO.File]::WriteAllText((Join-Path $legacy 'lefthook.yml'), $v2Lefthook + "`n", $utf8NoBom)
+    $v2Branch = [IO.File]::ReadAllText((Join-Path $kit 'tests/fixtures/v2/no-commit-on-main.sh'))
+    $v2Lefthook = [IO.File]::ReadAllText((Join-Path $kit 'tests/fixtures/v2/lefthook.yml'))
+    [IO.File]::WriteAllText((Join-Path $legacy 'scripts/hooks/no-commit-on-main.sh'), $v2Branch, $utf8NoBom)
+    [IO.File]::WriteAllText((Join-Path $legacy 'lefthook.yml'), $v2Lefthook, $utf8NoBom)
     Set-Content (Join-Path $legacy '.governance-version') '2.0.0'
     $dry = & (Join-Path $kit 'update-governance.ps1') -Target $legacy -DryRun *>&1 | Out-String
     Check 'PowerShell migration recognizes V2 known hashes' ($dry -match 'UPGRADE\s+scripts/hooks/no-commit-on-main.sh') $dry
