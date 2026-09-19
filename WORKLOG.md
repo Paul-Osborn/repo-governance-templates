@@ -28,11 +28,12 @@
   classifier with no code edit, and a same-branch policy-shrink attack is defeated), PowerShell
   7.6.6 compatibility suite on Linux (22 checks, including the new git-guard base-read regression
   test), governance structure/manifest validation in both kit and installed mode, shell/PowerShell
-  syntax, `git diff --check`, offline zizmor, and actionlint. An independent code-reviewer agent
-  pass and a second, targeted round on the git-guard fix. Native Windows execution remains
-  pending under issue #9.
-- **Next:** independent re-review of the git-guard fix, then the human owner merges the PR and
-  closes issue #8.
+  syntax, `git diff --check`, offline zizmor, and actionlint. Two independent code-reviewer agent
+  passes: the first found the git-guard gap above; the second, at exact HEAD
+  `d4ee3227dfefe7a854c9268845209f1883dc598b`, independently reran both the new regression test and
+  the attack by hand against pre-fix and post-fix content, reproduced the same pass/fail split,
+  and returned PASS with no findings. Native Windows execution remains pending under issue #9.
+- **Next:** the human owner reviews and merges the PR, then closes issue #8.
 - **Open decisions:** none for this branch; issues #9 and #10 remain separately owned.
 
 ## 2026-09-19 — V3 self-bootstrap after ratification
