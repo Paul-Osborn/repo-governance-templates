@@ -20,6 +20,7 @@
 
 .PARAMETER Target        Folder to set up (default: current folder). Created if missing.
 .PARAMETER Name          Project name; fills every <PROJECT_NAME> placeholder.
+.PARAMETER Owner         GitHub login that may ratify governance changes.
 .PARAMETER WithOptional  Also copy the optional/ reference templates.
 .PARAMETER Force         Overwrite files that already exist in the target.
 .PARAMETER NoGit         Skip 'git init'.
@@ -29,6 +30,7 @@
 param(
     [string]$Target = ".",
     [string]$Name,
+    [string]$Owner = '<owner>',
     [switch]$WithOptional,
     [switch]$Force,
     [switch]$NoGit,
@@ -53,19 +55,28 @@ $map = [ordered]@{
     'no-commit-on-main.template.sh' = 'scripts/hooks/no-commit-on-main.sh'  # branch guard (LF-only POSIX sh)
     'check-large-files.template.sh' = 'scripts/hooks/check-large-files.sh'  # large-file gate (LF-only POSIX sh)
     'check-lockfiles.template.sh'  = 'scripts/hooks/check-lockfiles.sh'    # lockfile sanity warning (LF-only POSIX sh)
+    'check-commit-message.template.sh' = 'scripts/hooks/check-commit-message.sh'
     'gitleaks.template.toml'       = '.gitleaks.toml'
+    'governance-policy.template.json' = '.governance/policy.json'
+    'review-attestation.template.json' = '.governance/review-attestation.example.json'
+    'scripts/ci/classify-change.template.sh' = 'scripts/ci/classify-change.sh'
+    'scripts/ci/verify-review.template.sh' = 'scripts/ci/verify-review.sh'
+    'scripts/ci/validate-governance.template.sh' = 'scripts/ci/validate-governance.sh'
+    'project-checks.template.sh' = 'scripts/ci/project-checks.sh'
+    'github/workflows/governance.template.yml' = '.github/workflows/governance.yml'
+    'github/workflows/review-gate.template.yml' = '.github/workflows/review-gate.yml'
+    'github/CODEOWNERS.template' = '.github/CODEOWNERS'
+    'github/governance-profile.json' = '.github/governance-profile.json'
     'cursor-rules.template.mdc'    = '.cursor/rules/agents.mdc'
-    'git-guard.template.ps1'       = '.claude/hooks/git-guard.ps1'
-    'protect-paths.template.ps1'   = '.claude/hooks/protect-paths.ps1'
-    'auto-commit.template.ps1'     = '.claude/hooks/auto-commit.ps1'
-    'claude-settings.snippet.json' = '.claude/settings.json'
-    'code-reviewer.template.md'    = '.claude/agents/code-reviewer.md'   # the one permitted subagent
 }
 
 # Resolve / create the target folder.
 $dest = if ([System.IO.Path]::IsPathRooted($Target)) { $Target } else { Join-Path (Get-Location) $Target }
 $dest = [System.IO.Path]::GetFullPath($dest)
 if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
+if (((Test-Path (Join-Path $dest 'AGENTS.md')) -or (Test-Path (Join-Path $dest '.governance-version'))) -and -not $Force) {
+    throw "$dest is already governed. Use update-governance.ps1 -DryRun instead."
+}
 
 Write-Host "Scaffolding governance into: $dest" -ForegroundColor Cyan
 
@@ -108,6 +119,16 @@ if ($Name) {
             $c.Replace('<PROJECT_NAME>', $Name) | Set-Content $_.FullName -NoNewline
             Write-Host "  set <PROJECT_NAME> -> '$Name' in $($_.Name)" -ForegroundColor Green
         }
+    }
+}
+
+# Bind remote governance to the named human owner. A placeholder is allowed for offline/new
+# repositories, but github-governance.ps1 refuses to apply until it is replaced.
+foreach ($rel in @('.github/CODEOWNERS', '.github/governance-profile.json')) {
+    $path = Join-Path $dest $rel
+    if (Test-Path $path) {
+        $content = Get-Content $path -Raw
+        $content.Replace('<owner>', $Owner) | Set-Content $path -NoNewline
     }
 }
 

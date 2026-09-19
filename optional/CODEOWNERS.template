@@ -14,6 +14,11 @@
 /AGENTS.md              @<owner>
 /CLAUDE.md              @<owner>
 /REPO_RULES.md          @<owner>
+/.governance-version    @<owner>
+/.governance/           @<owner>
 /.claude/               @<owner>
 /lefthook.yml           @<owner>
 /.gitleaks.toml         @<owner>
+/scripts/hooks/          @<owner>
+/scripts/ci/             @<owner>
+/.github/workflows/      @<owner>

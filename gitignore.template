@@ -34,6 +34,7 @@ __pycache__/
 coverage/
 *.local
 config.local.*
+.governance-backup/
 
 # Claude / agent local-only files (keep shared rules tracked; ignore personal ones)
 CLAUDE.local.md

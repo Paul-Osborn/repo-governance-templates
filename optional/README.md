@@ -13,4 +13,6 @@ the `<PLACEHOLDER>`s, and delete the rest.
 | `editorconfig.template` | `.editorconfig` | Almost always — it makes every editor use the same basic formatting (indentation, line endings). Cheap, prevents noisy diffs. |
 | `ISSUE_TEMPLATE.template.md` | `.github/ISSUE_TEMPLATE.md` | Public/team project; you want bug reports to include the info you need. |
 | `PULL_REQUEST_TEMPLATE.template.md` | `.github/PULL_REQUEST_TEMPLATE.md` | You want every PR to state what changed, why, and how it was tested. |
-| `ci-github-actions.template.yml` | `.github/workflows/ci.yml` | The project lives on GitHub and you want tests + the secret scan to re-run automatically on every push (a safety net behind the local checks). |
+
+GitHub governance CI is core in V3 and is installed from `github/workflows/`; it is no longer an
+optional example.

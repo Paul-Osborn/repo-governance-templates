@@ -12,6 +12,16 @@
 # Only --diff-filter=A (newly added) files are checked. Growing a file that is already
 # tracked is a different problem and blocking it would fight normal work.
 
+mode=staged
+base=
+head=HEAD
+if [ "${1:-}" = "--range" ]; then
+  [ "$#" -eq 3 ] || { echo "usage: $0 [--range BASE HEAD]" >&2; exit 2; }
+  mode=range
+  base=$2
+  head=$3
+fi
+
 max_kb="${GOVERNANCE_MAX_FILE_KB:-}"
 if [ -z "$max_kb" ]; then
   max_kb=$(git config --get governance.maxFileKB 2>/dev/null)
@@ -21,7 +31,11 @@ case "$max_kb" in
 esac
 max_bytes=$((max_kb * 1024))
 
-staged=$(git diff --cached --name-only --diff-filter=A)
+if [ "$mode" = range ]; then
+  staged=$(git diff --name-only --diff-filter=A "$base" "$head")
+else
+  staged=$(git diff --cached --name-only --diff-filter=A)
+fi
 [ -n "$staged" ] || exit 0
 
 rc=0
@@ -29,7 +43,11 @@ rc=0
 while IFS= read -r f; do
   [ -n "$f" ] || continue
   # Size of the STAGED blob, which is what would actually enter history.
-  size=$(git cat-file -s ":$f" 2>/dev/null) || continue
+  if [ "$mode" = range ]; then
+    size=$(git cat-file -s "$head:$f" 2>/dev/null) || continue
+  else
+    size=$(git cat-file -s ":$f" 2>/dev/null) || continue
+  fi
   case "$size" in ''|*[!0-9]*) continue ;; esac
   if [ "$size" -gt "$max_bytes" ]; then
     echo "Refused: '$f' is $((size / 1024)) KB, over the ${max_kb} KB limit for a new file."

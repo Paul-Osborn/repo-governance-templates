@@ -1,88 +1,125 @@
-﻿{
-    "governanceVersion":  "2.0.0",
-    "generated":  "2026-09-05",
-    "note":  "Files this kit OWNS and may safely replace when they are unmodified. Everything else in a governed project belongs to the project. knownHashes are content hashes of earlier shipped versions (line endings normalised), so an untouched older gate is recognised as upgradeable rather than customised. Regenerate with: update-governance.ps1 -RebuildManifest",
-    "files":  [
-                  {
-                      "template":  "git-guard.template.ps1",
-                      "dest":  ".claude/hooks/git-guard.ps1",
-                      "note":  "All git/PR policy in one PreToolUse hook.",
-                      "sha256":  "8522e287d738b7b86cfd97b4fc80e5756cae59eebc1883179bb6d2b7bc9fc723",
-                      "knownHashes":  [
-                                          "1ff8ccb210b3ea501f2c0ec34fbc451d05a3681cae9828ed31cedf47070ab8a0"
-                                      ]
-                  },
-                  {
-                      "template":  "protect-paths.template.ps1",
-                      "dest":  ".claude/hooks/protect-paths.ps1",
-                      "note":  "Denies edits to the rules and gates. Projects often add their own paths here.",
-                      "sha256":  "56c65a8a3e51b362d5027add520f89ba1d6f125fcaa8c5e2bc47bb2ab344e380",
-                      "knownHashes":  [
-                                          "da0f07f58a3d129dacefd417204abc8a2abf63cc92a60a6c278217f388d232d3"
-                                      ]
-                  },
-                  {
-                      "template":  "auto-commit.template.ps1",
-                      "dest":  ".claude/hooks/auto-commit.ps1",
-                      "note":  "Stop hook; saves leftover work to every remote.",
-                      "sha256":  "6a3455625bace70a13463675b8c5eac32cb4f28f314bf1019137f203410cb1ba",
-                      "knownHashes":  [
-                                          "351803cc7e95777fe458073a74309eeff8a645eb54eb1f0e6296c422992484d7"
-                                      ]
-                  },
-                  {
-                      "template":  "code-reviewer.template.md",
-                      "dest":  ".claude/agents/code-reviewer.md",
-                      "note":  "The one permitted subagent: independent final review.",
-                      "sha256":  "68122f585de6d390ffe3a94a60cfdfd08f2b34561fda1c643d16f92c9b1ef985",
-                      "knownHashes":  [
-
-                                      ]
-                  },
-                  {
-                      "template":  "no-commit-on-main.template.sh",
-                      "dest":  "scripts/hooks/no-commit-on-main.sh",
-                      "note":  "Branch guard, git level, every agent.",
-                      "sha256":  "7f4395b2bfa9bb6836bec6b3eac9ae4b539787c6feeb538a6d76badf94bb4059",
-                      "knownHashes":  [
-
-                                      ]
-                  },
-                  {
-                      "template":  "check-large-files.template.sh",
-                      "dest":  "scripts/hooks/check-large-files.sh",
-                      "note":  "Large-file gate, git level, every agent.",
-                      "sha256":  "6b2a58cb0133253048bde866f24559c4043c6528ffdd3909299aa157d912b60e",
-                      "knownHashes":  [
-
-                                      ]
-                  },
-                  {
-                      "template":  "check-lockfiles.template.sh",
-                      "dest":  "scripts/hooks/check-lockfiles.sh",
-                      "note":  "Lockfile sanity warning, git level.",
-                      "sha256":  "6ecf1112ab4e18ef12d7c9e82db146b428be3f33146828e4d272605488e0bb80",
-                      "knownHashes":  [
-
-                                      ]
-                  },
-                  {
-                      "template":  "lefthook.template.yml",
-                      "dest":  "lefthook.yml",
-                      "note":  "Wires the git-level gates. Projects add their own lint/test commands here.",
-                      "sha256":  "27f845168cab725dcf260dc7d93a7174e6667321077230941b43c7fd05730200",
-                      "knownHashes":  [
-                                          "2d67412530b99c55d2de85003d3a3bffd380c1d4142c061c4194f424f6c76180"
-                                      ]
-                  },
-                  {
-                      "template":  "gitattributes.template",
-                      "dest":  ".gitattributes",
-                      "note":  "Keeps the sh gates LF-only so they run on Windows.",
-                      "sha256":  "ad5d059444cb641a51c27b153660fb80060eace23a1f28e0f728f8c5c20d0f1e",
-                      "knownHashes":  [
-
-                                      ]
-                  }
-              ]
+{
+  "governanceVersion": "3.0.0",
+  "generated": "2026-09-18",
+  "note": "Only these template-owned controls may be added or replaced, and only when the installed normalized hash matches a current or known shipped version. Project source and filled policy are never managed. Customized files remain untouched.",
+  "files": [
+    {
+      "template": "no-commit-on-main.template.sh",
+      "dest": "scripts/hooks/no-commit-on-main.sh",
+      "note": "Portable protected-default-branch commit gate.",
+      "sha256": "c2292b7dbd78e617e6e29000f00444fa9654208ee54894d84e9e71fbac0893e0",
+      "knownHashes": ["7f4395b2bfa9bb6836bec6b3eac9ae4b539787c6feeb538a6d76badf94bb4059"]
+    },
+    {
+      "template": "check-large-files.template.sh",
+      "dest": "scripts/hooks/check-large-files.sh",
+      "note": "Portable local and CI large-file gate.",
+      "sha256": "565c52a11f94f6ab6356be552e3e0d011786d3bee5627d371412ad4fbc368487",
+      "knownHashes": ["6b2a58cb0133253048bde866f24559c4043c6528ffdd3909299aa157d912b60e"]
+    },
+    {
+      "template": "check-lockfiles.template.sh",
+      "dest": "scripts/hooks/check-lockfiles.sh",
+      "note": "Non-blocking lockfile sanity warning.",
+      "sha256": "6ecf1112ab4e18ef12d7c9e82db146b428be3f33146828e4d272605488e0bb80",
+      "knownHashes": []
+    },
+    {
+      "template": "check-commit-message.template.sh",
+      "dest": "scripts/hooks/check-commit-message.sh",
+      "note": "Conventional Commit subject gate.",
+      "sha256": "afdd3e64189916a53374a34c160576b1b305f5ffb82cb7db686f0a93123383fa",
+      "knownHashes": []
+    },
+    {
+      "template": "lefthook.template.yml",
+      "dest": "lefthook.yml",
+      "note": "Agent-neutral local lifecycle wiring.",
+      "sha256": "2cb6852b399b6d0b9b5ee4fab0666e2be5118b3a907748978f913b07a5bc66cf",
+      "knownHashes": [
+        "27f845168cab725dcf260dc7d93a7174e6667321077230941b43c7fd05730200",
+        "2d67412530b99c55d2de85003d3a3bffd380c1d4142c061c4194f424f6c76180"
+      ]
+    },
+    {
+      "template": "gitattributes.template",
+      "dest": ".gitattributes",
+      "note": "LF shell-script compatibility on Windows.",
+      "sha256": "ad5d059444cb641a51c27b153660fb80060eace23a1f28e0f728f8c5c20d0f1e",
+      "knownHashes": []
+    },
+    {
+      "template": "governance-policy.template.json",
+      "dest": ".governance/policy.json",
+      "note": "Machine-readable trust roots and review mode.",
+      "sha256": "2b225c1663221d84016834a8c3e62f296951d3da881faa3fe32e06c9bdb8753b",
+      "knownHashes": []
+    },
+    {
+      "template": "review-attestation.template.json",
+      "dest": ".governance/review-attestation.example.json",
+      "note": "Explicitly limited non-GitHub review evidence example.",
+      "sha256": "28ac1a5e46c9967d30eef45a771c07247278a059343d077cd7e2c513da620386",
+      "knownHashes": []
+    },
+    {
+      "template": "scripts/ci/classify-change.template.sh",
+      "dest": "scripts/ci/classify-change.sh",
+      "note": "Deterministic prose/substantive classifier.",
+      "sha256": "8d15f0e74b2c22de96717d14e9a710913c0a088c1cb6e0d5411bbda5facef11c",
+      "knownHashes": []
+    },
+    {
+      "template": "scripts/ci/verify-review.template.sh",
+      "dest": "scripts/ci/verify-review.sh",
+      "note": "Exact-state review verification interface.",
+      "sha256": "7144c2e7b5e52d3e1cfd04b7442eaeb9bb4da2dcf963268fa6481db8bbe352dd",
+      "knownHashes": []
+    },
+    {
+      "template": "scripts/ci/validate-governance.template.sh",
+      "dest": "scripts/ci/validate-governance.sh",
+      "note": "Governance structure and workflow pin validation.",
+      "sha256": "6837a1a54810935fbc790b484582714fca37652978588ac9b424260cdfa8bdf5",
+      "knownHashes": []
+    },
+    {
+      "template": "project-checks.template.sh",
+      "dest": "scripts/ci/project-checks.sh",
+      "note": "Project-owned lint/test/build hook after first customization.",
+      "mode": "add-only",
+      "sha256": "5acdbe4ddee8dbd8ec2616059a512983f33dfc6727f76b7586a69b08645d0e1a",
+      "knownHashes": []
+    },
+    {
+      "template": "github/workflows/governance.template.yml",
+      "dest": ".github/workflows/governance.yml",
+      "note": "Pinned least-privilege remote CI baseline.",
+      "sha256": "fe196cb7d2c0773770199e630adbdfcdf9b3b028480bfa6d30b1f37308d8f2c5",
+      "knownHashes": []
+    },
+    {
+      "template": "github/workflows/review-gate.template.yml",
+      "dest": ".github/workflows/review-gate.yml",
+      "note": "Protected-base exact-head review status producer.",
+      "sha256": "dd25873b2d28755ad882c53336fa87da1209ce7b08d99e57d21ee2f20af8caa1",
+      "knownHashes": []
+    },
+    {
+      "template": "github/CODEOWNERS.template",
+      "dest": ".github/CODEOWNERS",
+      "note": "Human governance owner; customize <owner> before remote enforcement.",
+      "mode": "add-only",
+      "sha256": "9203253a02fa738913513176c847fda6dd6b717a0facbc549e0fa75d6e05959c",
+      "knownHashes": []
+    },
+    {
+      "template": "github/governance-profile.json",
+      "dest": ".github/governance-profile.json",
+      "note": "Machine-readable desired GitHub settings; customize owner before apply.",
+      "mode": "add-only",
+      "sha256": "d0380f960b1db9f824b0ba2cf92556c0fb0ffdc1769b4a56718687cc7c28375b",
+      "knownHashes": []
+    }
+  ]
 }

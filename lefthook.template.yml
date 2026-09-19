@@ -1,48 +1,26 @@
-# Lefthook — the checks that run automatically before every commit.
-#
-# These are the GIT-level gates: they apply to every agent (Claude, Codex, Cursor,
-# Antigravity) and to commits you make by hand. Nothing here depends on an agent
-# remembering a rule.
-#
-# BOTH tools must be installed or the pipeline no-ops/fails:
-#   1. lefthook:  https://github.com/evilmartians/lefthook
-#   2. gitleaks:  https://github.com/gitleaks/gitleaks
-#      (`scoop install lefthook gitleaks` installs both at once.)
-#   3. Copy this file to your repo root as `lefthook.yml`, then run:  lefthook install
-#
-# NOTE: lefthook runs each `run:` string through Git's bundled POSIX `sh`, not PowerShell.
-# The gates therefore live in LF-only sh scripts under scripts/hooks/, kept LF by
-# .gitattributes — inline PowerShell or a CRLF `run: |` block breaks under sh on Windows.
+# Agent-neutral local lifecycle gates. Lefthook invokes Git's POSIX shell on Windows and the
+# system shell on Linux; .gitattributes keeps every *.sh file LF-only.
 
 pre-commit:
   parallel: true
   commands:
-    # Refuses any commit made on main/master. Branch first.
-    no-commit-on-main:
+    no-commit-on-default:
       run: sh scripts/hooks/no-commit-on-main.sh
-
-    # The most important guardrail: refuse to commit secrets (keys, tokens, passwords).
     secret-scan:
       run: gitleaks protect --staged --redact --config .gitleaks.toml
-
-    # Refuses a newly added file over the size limit (default 2048 KB).
-    # Change the limit with:  git config governance.maxFileKB <number>
     no-large-files:
       run: sh scripts/hooks/check-large-files.sh
-
-    # WARNS (does not block) when a dependency lockfile changed but its manifest did not.
     lockfile-sanity:
       run: sh scripts/hooks/check-lockfiles.sh
 
-    # --- Wire your project's own checks below. Uncomment and edit. ---
-    # lint:
-    #   glob: "*.{js,ts,py,go}"
-    #   run: <your linter, e.g. ruff check {staged_files} / eslint {staged_files}>
-    # format-check:
-    #   run: <your formatter in check mode, e.g. prettier --check {staged_files}>
+commit-msg:
+  commands:
+    conventional-commit:
+      run: sh scripts/hooks/check-commit-message.sh {1}
 
-# Optional: also run tests before pushing.
-# pre-push:
-#   commands:
-#     test:
-#       run: <your test command>
+# Configure scripts/ci/project-checks.sh with this project's lint, test, and build commands.
+# It is run locally before push and independently by the governance CI workflow.
+pre-push:
+  commands:
+    project-checks:
+      run: sh scripts/ci/project-checks.sh

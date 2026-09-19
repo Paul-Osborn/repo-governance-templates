@@ -131,7 +131,9 @@ foreach ($f in $manifest.files) {
     $current = Get-NormalizedHash $targetFile
     $shipped = Get-NormalizedHash $src
 
+    $mode = if ($f.PSObject.Properties['mode']) { [string]$f.mode } else { 'managed' }
     $action = if ($null -eq $current)                     { 'ADD' }
+              elseif ($mode -eq 'add-only')               { 'CURRENT' }
               elseif ($current -eq $shipped)              { 'CURRENT' }
               elseif (@($f.knownHashes) -contains $current) { 'UPGRADE' }
               else                                        { 'CONFLICT' }
@@ -206,6 +208,7 @@ if (-not $BackupDir) {
 }
 
 $restore = @()   # {Path, Backup} for rollback
+$added = @()     # paths created by this run; removed if a later write fails
 try {
     foreach ($p in ($adds + $upgrades)) {
         if ($p.Action -eq 'UPGRADE' -and -not $NoBackup) {
@@ -215,6 +218,9 @@ try {
             if (-not (Test-Path $bakDir)) { New-Item -ItemType Directory -Path $bakDir -Force | Out-Null }
             Copy-Item $p.Path $bak -Force
             $restore += [pscustomobject]@{ Path = $p.Path; Backup = $bak }
+        }
+        elseif ($p.Action -eq 'ADD') {
+            $added += $p.Path
         }
 
         $dir = Split-Path $p.Path -Parent
@@ -227,6 +233,9 @@ try {
     Write-Warning "Update failed part-way: $($_.Exception.Message)"
     foreach ($r in $restore) {
         try { Copy-Item $r.Backup $r.Path -Force; Write-Host "  restored: $($r.Path)" -ForegroundColor Yellow } catch { }
+    }
+    foreach ($path in $added) {
+        try { Remove-Item $path -Force -ErrorAction SilentlyContinue; Write-Host "  removed added file: $path" -ForegroundColor Yellow } catch { }
     }
     throw "Update rolled back. The project is as it was. Nothing is half-applied."
 }

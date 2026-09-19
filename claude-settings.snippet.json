@@ -1,5 +1,5 @@
 {
-  "_comment": "Merge into your repo's .claude/settings.json. 'permissions.allow' lets the agent run the git/PR commands without prompting you, so git is hands-off. The hooks enforce the rules regardless: git-guard and protect-paths DENY bad actions (deny overrides allow), and auto-commit saves leftover work when a turn ends. Merging a reviewed, green PR into main is allowed; merging a PR that edits the rules is not.",
+  "_comment": "Legacy V2 optional Windows adapter; V3 does not install this by default or rely on it. Review every permission before merging it into .claude/settings.json. Cross-agent Git hooks, CI, hosting protection, and human ratification are the critical controls.",
   "permissions": {
     "allow": [
       "Bash(git add:*)",

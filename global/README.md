@@ -1,56 +1,31 @@
-# Global agent setup (auto-governance for new projects)
+# Global agent bootstrap
 
-These instructions make **any** agent govern a new project automatically: you open an empty
-folder, state your task, and the agent scaffolds governance + writes the PRD before coding.
+The managed instruction in `new-project-bootstrap.md` teaches an agent to install governance
+before product code in a genuinely new folder. It is generic and contains no company deployment
+or infrastructure policy.
 
-There are two instructions here, and both install the same way:
+Install or refresh it without replacing personal instructions:
 
-- [`new-project-bootstrap.md`](new-project-bootstrap.md) - govern a new project automatically.
-- [`server-rules.md`](server-rules.md) - the rules for putting anything on Paul's mini PC.
-  Added 2026-09-04 after an agent mounted an app on the server's bare address without
-  asking and silently displaced what was there, then took four other sites down trying to
-  undo it. Every rule in that file is a mistake that has actually happened.
-
-Both are installed into each agent's **global (user-level) config**. Three of the four are
-plain files you can write; Cursor's is set in its UI.
-
-| Agent | Where the global instruction goes | How |
-|-------|-----------------------------------|-----|
-| Claude Code | `C:\Users\<you>\.claude\CLAUDE.md` | Append the bootstrap block. |
-| Codex | `C:\Users\<you>\.codex\AGENTS.md` | Create the file with the bootstrap block. |
-| Antigravity | `C:\Users\<you>\.gemini\GEMINI.md` | Create the file with the bootstrap block. (Also used by Gemini CLI.) |
-| Cursor | Settings → Rules → **User Rules** | Paste `cursor-user-rules.txt` (Cursor stores user rules in-app, not as a file). |
-| Grok | **not yet wired up** | `~/.grokbot` holds runtime state only, no instruction file. If Grok reads a project's `AGENTS.md`, the per-project copy covers it; the global rules are NOT reaching it. |
-
-## Updating them later (V2)
-
-Don't copy these files over the installed ones by hand -- the installed copy usually also
-holds personal notes you do not want to lose. Use the updater instead:
+```sh
+./update-global-rules.sh --dry-run
+./update-global-rules.sh
+```
 
 ```powershell
 & "$env:REPO_GOVERNANCE_HOME\update-global-rules.ps1" -DryRun
+& "$env:REPO_GOVERNANCE_HOME\update-global-rules.ps1"
 ```
 
-then the same command without `-DryRun`. It writes the governance content between two
-markers and replaces only what is between them:
+Both updaters replace only the block between the managed markers, create a backup before a write,
+and are idempotent. Supported file-backed locations:
 
-```
-<!-- BEGIN repo-governance (managed) -->
-<!-- END repo-governance (managed) -->
-```
+| Agent | User-level instruction file |
+|---|---|
+| Codex | `~/.codex/AGENTS.md` |
+| Claude Code | `~/.claude/CLAUDE.md` |
+| Gemini / Antigravity | `~/.gemini/GEMINI.md` |
+| OpenCode | `~/.config/opencode/AGENTS.md` |
 
-Anything outside those markers is never read, moved or changed, and the file is backed up
-before it is written. Running it twice does nothing the second time. Cursor still has to be
-pasted in by hand, because it keeps user rules in the app rather than in a file.
-
-## Notes
-
-- **It activates only after `new-governed-repo.ps1` exists at `$env:REPO_GOVERNANCE_HOME`** —
-  i.e. set via `[Environment]::SetEnvironmentVariable('REPO_GOVERNANCE_HOME', '<path to kit>', 'User')`.
-- **Safe by design:** the block only fires for a *new* project in a folder with no `AGENTS.md`,
-  and the scaffold script skips files that already exist. Existing projects are untouched.
-- **Permissions:** the first scaffold in a project may ask the agent's permission to run the
-  script — that's the secure default. To make it promptless in Claude Code, add an allow rule
-  for the script to `C:\Users\<you>\.claude\settings.json`.
-- To change either instruction, edit the file **here** and re-copy to the locations above.
-  The installed copies are copies - editing them in place gets undone on the next install.
+Cursor stores user rules in its UI; paste `global/cursor-user-rules.txt` manually. Global policy
+is a convenience, not a security boundary. The generated repository's hooks and remote controls
+remain authoritative.
