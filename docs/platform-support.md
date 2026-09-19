@@ -29,9 +29,10 @@ then run `lefthook install` in the governed repository.
 & "$env:REPO_GOVERNANCE_HOME\update-governance.ps1" -Target . -DryRun
 ```
 
-V3's Linux acceptance suite runs on this project’s Linux path. Windows scripts receive fixture and
-static compatibility tests in CI, but a release must state explicitly when it was not executed on
-a real Windows host.
+V3's Linux acceptance suite runs on this project's Linux path. The PowerShell acceptance suite can
+also run under PowerShell Core on Linux for real script-execution coverage, and Windows scripts
+receive fixture and static compatibility tests. That is not a substitute for a native Windows run;
+a release must state explicitly when it was not executed on a real Windows host.
 
 ## GitHub controls
 

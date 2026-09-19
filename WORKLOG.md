@@ -9,9 +9,10 @@
   Linux/Windows bootstrap and migration, portable gates, protected-base exact-state review,
   pinned CI and workflow analysis, GitHub plan/apply policy, public/private separation, and
   disposable acceptance coverage.
-- **Verified by:** Linux/Omarchy acceptance suite (68 checks), manifest consistency, actionlint,
-  offline zizmor, JSON/YAML/shell syntax, and a real GitHub policy dry-run. Windows remains a
-  documented compatibility path pending execution on a Windows host.
+- **Verified by:** Linux/Omarchy acceptance suite (68 checks), PowerShell 7.6.6 compatibility
+  suite on Linux (15 checks), manifest consistency, actionlint, offline zizmor,
+  JSON/YAML/shell syntax, and a real GitHub policy dry-run. Native Windows execution remains
+  pending and is called out in the PR evidence.
 - **Next:** open the human-ratified PR for issue #6; Claude performs the independent PR review.
 - **Open decisions:** none; the security model documents the reviewer-status trust limitation.
 
