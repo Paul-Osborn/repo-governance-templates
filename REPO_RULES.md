@@ -122,6 +122,12 @@ classic branch protection with the strongest equivalent fields. Rulesets and som
 features vary by plan and repository visibility. The tool reports `supported`, `fallback`, or
 `manual-required`; it never silently claims a setting exists.
 
+The `governance/exact-head-review` status can optionally be produced by a dedicated, least-
+privilege GitHub App instead of the shared Actions identity every other check uses, so a required
+check can trust that one producer specifically. This needs a human owner to register the App,
+generate its private key, and install it — an agent never performs that setup. See
+`docs/security-model.md`.
+
 CI uses read-only permissions unless a job needs more. Third-party actions are pinned to immutable
 commits. zizmor statically checks workflow files without requiring GitHub Advanced Security.
 

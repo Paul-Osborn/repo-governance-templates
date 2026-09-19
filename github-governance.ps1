@@ -29,7 +29,20 @@ Write-Host "  default branch: $($repoInfo.default_branch)"
 Write-Host "  governance owner: $($desired.governanceOwner)"
 Write-Host "  detected capability: $(if ($rulesetsSupported) { 'rulesets' } else { 'branch-protection-fallback' })"
 Write-Host '  required checks:'
-foreach ($check in $desired.requiredStatusChecks) { Write-Host "    - $check" }
+$reviewContext = $desired.review.statusContext
+$defaultIntegrationId = $desired.review.preferredTrustedIntegrationId
+$reviewerAppId = $desired.review.externalReviewerAppId
+foreach ($check in $desired.requiredStatusChecks) {
+    if ($check -eq $reviewContext) {
+        if ($reviewerAppId) {
+            Write-Host "    - $check (integration_id $reviewerAppId, dedicated reviewer App)"
+        } else {
+            Write-Host "    - $check (integration_id $defaultIntegrationId, default Actions identity; no reviewer App configured yet)"
+        }
+    } else {
+        Write-Host "    - $check (integration_id $defaultIntegrationId)"
+    }
+}
 Write-Host '  pull requests, code-owner/last-push review, linear history, no force push/deletion'
 Write-Host '  workflow token default: read; Actions cannot approve PRs'
 
@@ -59,7 +72,8 @@ try {
         $payload.name = $desired.rulesetName
         $statusRule = $payload.rules | Where-Object type -eq 'required_status_checks'
         $statusRule.parameters.required_status_checks = @($desired.requiredStatusChecks | ForEach-Object {
-            [pscustomobject]@{ context = $_; integration_id = 15368 }
+            $integrationId = if ($_ -eq $reviewContext -and $reviewerAppId) { $reviewerAppId } else { $defaultIntegrationId }
+            [pscustomobject]@{ context = $_; integration_id = $integrationId }
         })
         [IO.File]::WriteAllText($temp, ($payload | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         if ($existing) { & gh api --method PUT "repos/$Repo/rulesets/$($existing.id)" --input $temp | Out-Null }

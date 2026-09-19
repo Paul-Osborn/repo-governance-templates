@@ -29,6 +29,9 @@ default_branch=$(printf '%s' "$repo_json" | jq -r .default_branch)
 visibility=$(printf '%s' "$repo_json" | jq -r .visibility)
 owner=$(jq -r .governanceOwner "$profile")
 ruleset_name=$(jq -r .rulesetName "$profile")
+review_context=$(jq -r '.review.statusContext' "$profile")
+default_integration_id=$(jq -r '.review.preferredTrustedIntegrationId' "$profile")
+reviewer_app_id=$(jq -r '.review.externalReviewerAppId // empty' "$profile")
 
 rulesets_tmp=$(mktemp)
 err_tmp=$(mktemp)
@@ -47,7 +50,20 @@ echo "  governance owner: $owner"
 echo "  preferred control: GitHub rulesets"
 echo "  detected capability: $capability"
 echo "  required checks:"
-jq -r '.requiredStatusChecks[] | "    - " + .' "$profile"
+while IFS= read -r check; do
+  [ -n "$check" ] || continue
+  if [ "$check" = "$review_context" ]; then
+    if [ -n "$reviewer_app_id" ]; then
+      echo "    - $check (integration_id $reviewer_app_id, dedicated reviewer App)"
+    else
+      echo "    - $check (integration_id $default_integration_id, default Actions identity; no reviewer App configured yet)"
+    fi
+  else
+    echo "    - $check (integration_id $default_integration_id)"
+  fi
+done <<CHECKS
+$(jq -r '.requiredStatusChecks[]' "$profile")
+CHECKS
 echo "  pull requests: required; stale approvals dismissed; code owner + last-push approval"
 echo "  history: force pushes and deletion blocked; linear history required"
 echo "  workflow token default: read; Actions cannot approve PRs"
@@ -73,7 +89,14 @@ gh api --method PUT "repos/$repo/actions/permissions/workflow" \
   -f default_workflow_permissions=read -F can_approve_pull_request_reviews=false >/dev/null
 
 if [ "$capability" = rulesets ]; then
-  checks=$(jq '[.requiredStatusChecks[] | {context: ., integration_id: 15368}]' "$profile")
+  checks=$(jq --arg reviewContext "$review_context" \
+              --argjson defaultId "$default_integration_id" \
+              --argjson appId "$(jq -r '.review.externalReviewerAppId // "null"' "$profile")" '
+    [.requiredStatusChecks[] |
+      { context: .,
+        integration_id: (if . == $reviewContext and $appId != null then $appId else $defaultId end)
+      }
+    ]' "$profile")
   jq --arg name "$ruleset_name" --argjson checks "$checks" '
     .name = $name |
     (.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks) = $checks

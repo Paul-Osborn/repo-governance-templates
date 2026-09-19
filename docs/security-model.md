@@ -39,12 +39,28 @@ the event's base repository is the current repository, passes event values only 
 environment variables, and has only pull-request-read plus status-write permission. Do not add a
 checkout, dependency install, cache restore, artifact execution, or general write token to it.
 
-Remaining limitation: the baseline uses the repository's GitHub Actions identity, not a dedicated
-reviewer GitHub App. A repository administrator or a credential able to alter protections/workflows
-can forge or replace the status source. Private repositories may also lack ruleset/code-owner
-features on their plan. The clean extension point is the `governance/exact-head-review` status:
-replace its producer with an independently credentialed GitHub App and bind the ruleset's
-`integration_id` to that App. Until then, governance changes remain human-only even when CI is green.
+By default the baseline uses the repository's shared GitHub Actions identity (`github-actions[bot]`,
+`integration_id` 15368) for every required check, including `governance/exact-head-review`. A
+repository administrator, or a credential able to alter protections/workflows, can forge or replace
+that status because every other Actions job in the repository shares the same identity.
+
+The review-gate workflow's `Mint dedicated reviewer identity token` step closes that gap when the
+owner configures it: given a `GOVERNANCE_REVIEWER_APP_ID` repository variable and a
+`GOVERNANCE_REVIEWER_APP_PRIVATE_KEY` repository secret for a dedicated, least-privilege GitHub
+App (`contents:read`, `pull-requests:read`, `statuses:write` only, installed on this repository
+only), the job mints an installation token via `actions/create-github-app-token` (pinned by commit
+SHA) and publishes the `governance/exact-head-review` status under that App's identity instead of
+the shared Actions bot. `github-governance.sh` / `.ps1` then bind that one required-check context to
+`review.externalReviewerAppId` in `governance-profile.json`, while every other context keeps the
+default Actions `integration_id` — so a required status check can trust this specific producer, not
+any workflow holding the default token. Absent that configuration, the job falls back to
+`github.token`, matching prior behavior with no regression.
+
+Registering the App, generating and handling its private key, and installing it are human-only
+steps: they require the owner's GitHub identity and are never performed by an implementation agent.
+Until the owner completes that setup and this repository's own `externalReviewerAppId` is set,
+governance changes remain human-only even when CI is green, exactly as before. Private repositories
+may also lack ruleset/code-owner features on their plan.
 
 GitHub's [ruleset status-check documentation](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/available-rules-for-rulesets#require-status-checks-to-pass-before-merging)
 explains that a required check can be bound to an expected GitHub App source. V3's profile exposes
