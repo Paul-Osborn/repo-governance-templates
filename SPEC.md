@@ -1,42 +1,47 @@
-# Native Windows verification
+# Dedicated reviewer GitHub App (issue #10)
 
 ## Outcome
 
-Run V3's bootstrap, migration, hooks, and PowerShell acceptance suite on a real Windows host with
-Git for Windows, and record that evidence, so the project can stop qualifying Windows support as
-"not natively verified" (issue #9).
+Give the independent-review status producer (`governance/exact-head-review`) a distinct,
+least-privilege GitHub identity so a required status check can trust that specific producer
+instead of the shared Actions bot every other check also uses (issue #10).
 
-## In scope
+## In scope (agent-executable, no owner credentials)
 
-- A permanent, least-privilege CI job that runs `tests/acceptance.ps1` on a GitHub-hosted
-  `windows-latest` runner (native Git for Windows, native PowerShell), added to this repository's
-  own active `.github/workflows/governance.yml`.
-- Checksum-pinned Gitleaks/Lefthook binaries for Windows, verified against the same upstream
-  release manifests already used for the Linux pins.
-- Recording the runner OS build, PowerShell version, Git for Windows version, and pinned
-  Gitleaks/Lefthook versions as part of the job's own output, and in `WORKLOG.md` /
-  `docs/platform-support.md` once a run has actually passed.
+- `.github/workflows/review-gate.yml` / `github/workflows/review-gate.template.yml`: mint an
+  installation token from a GitHub App (`actions/create-github-app-token`, pinned by commit SHA)
+  when `vars.GOVERNANCE_REVIEWER_APP_ID` and `secrets.GOVERNANCE_REVIEWER_APP_PRIVATE_KEY` are
+  configured, scoped to `contents:read`, `pull-requests:read`, `statuses:write` only. Falls back
+  to `github.token` (today's behavior) when unconfigured, so nothing regresses before the owner
+  finishes setup.
+- `github-governance.sh` / `github-governance.ps1`: resolve `integration_id` per required-check
+  context instead of hardcoding one value for all five. `governance/exact-head-review` binds to
+  `review.externalReviewerAppId` once the owner sets it in the profile; every other context keeps
+  `review.preferredTrustedIntegrationId` (the default Actions identity, 15368). The plan output
+  now shows which identity each check is bound to.
+- `governance-manifest.json`: updated normalized hash for `review-gate.template.yml`, prior hash
+  preserved in `knownHashes`.
+- `docs/security-model.md`: describe the implemented mechanism and what remains owner-only.
 
-## Out of scope
+## Out of scope (human-only; see the owner checkpoint delivered with this work)
 
-- Adding a Windows job to the *shipped* `github/workflows/governance.template.yml`. That template
-  is copied into every downstream project bootstrapped from this kit, and those projects do not
-  receive `tests/acceptance.ps1` (it is not a manifest-tracked template — it tests this kit's own
-  bootstrap/migration behavior, not a downstream project's code). Shipping a Windows job by default
-  to every consumer would be a real, unrequested cost/scope decision belonging to a separate
-  conversation, not an implication of "verify this kit's own native Windows behavior." This mirrors
-  the existing asymmetry between the `project` job's kit-specific tool installation in the active
-  workflow and its generic form in the template.
-- Issue #10 (distinct reviewer identity/App) and strict ruleset activation.
-- Updating `docs/platform-support.md` / `WORKLOG.md` before a real passing native-Windows run
-  exists to cite.
+- Registering the GitHub App itself, choosing its name, generating or handling its private key,
+  and installing it on the repository. An agent must not do this: it requires the owner's GitHub
+  identity, may prompt 2FA, and handling a downloaded private key belongs to the owner alone.
+- Setting `GOVERNANCE_REVIEWER_APP_ID` (repo variable) and `GOVERNANCE_REVIEWER_APP_PRIVATE_KEY`
+  (repo secret) in GitHub repository settings.
+- Setting `github/governance-profile.json` / `.github/governance-profile.json`'s
+  `review.externalReviewerAppId` to the real App ID — an agent can do this once the owner supplies
+  the ID (no credentials required for that step), but not before the App exists.
+- Activating the strict GitHub ruleset (`github-governance.sh --apply`). It remains plan-only per
+  `AGENTS.md`'s control boundaries regardless of App status.
 
 ## Completion evidence
 
-- A `Governance / windows-verification` job exists in `.github/workflows/governance.yml`, runs on
-  `windows-latest`, and its own log records the Windows build, PowerShell version, Git for Windows
-  version, and pinned tool versions.
-- `tests/acceptance.ps1` passes on that job with 0 failures — a real run URL is the evidence, not a
-  claimed count.
-- `docs/platform-support.md` and `WORKLOG.md` are updated from "not natively verified" to the
-  verified state, citing that run.
+- `sh tests/acceptance.sh` and `pwsh tests/acceptance.ps1` pass with the updated scripts/workflow.
+- `zizmor` reports no findings on the updated `review-gate.yml`.
+- A live PR against `main`, opened after the owner finishes the human-only setup, shows the
+  `governance/exact-head-review` status posted by the dedicated App identity (not
+  `github-actions[bot]`).
+- `docs/security-model.md` no longer describes the App-based identity as a future extension point
+  only; it describes the implemented, owner-activatable mechanism.
