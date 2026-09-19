@@ -74,6 +74,53 @@ repeat_output=$("$kit/new-governed-repo.sh" --target "$repo" --name 'Wrong path'
 check 'bootstrap refuses to restamp an already governed repository' test "$repeat_status" -ne 0
 check 'bootstrap points existing repositories to safe updater' contains "$repeat_output" 'update-governance.sh --dry-run'
 
+# Trust-root consistency: one canonical policy drives CODEOWNERS, the classifier, and the
+# legacy git-guard fallback. Drift in either direction must fail closed, and a path added only
+# to the canonical policy must reach the classifier with no code edits.
+trust_repo="$work/trust-root"
+"$kit/new-governed-repo.sh" --target "$trust_repo" --name 'Trust Root Fixture' --owner test-owner >/dev/null
+check 'trust root includes the governance ruleset profile' jq -e '.trustRootPaths | index(".github/governance-profile.json")' "$trust_repo/.governance/policy.json"
+check 'installed governance structure passes trust-root consistency' sh -c "cd '$trust_repo' && sh scripts/ci/validate-governance.sh >/dev/null"
+
+cp "$trust_repo/.github/CODEOWNERS" "$work/codeowners.orig"
+sed -i '/^\/CLAUDE\.md /d' "$trust_repo/.github/CODEOWNERS"
+check 'CODEOWNERS missing a trust-root entry fails validation' fails sh -c "cd '$trust_repo' && sh scripts/ci/validate-governance.sh >/dev/null 2>&1"
+cp "$work/codeowners.orig" "$trust_repo/.github/CODEOWNERS"
+
+printf '/EXTRA.md @test-owner\n' >> "$trust_repo/.github/CODEOWNERS"
+check 'CODEOWNERS with an extra untracked entry fails validation' fails sh -c "cd '$trust_repo' && sh scripts/ci/validate-governance.sh >/dev/null 2>&1"
+cp "$work/codeowners.orig" "$trust_repo/.github/CODEOWNERS"
+check 'restored CODEOWNERS passes trust-root consistency again' sh -c "cd '$trust_repo' && sh scripts/ci/validate-governance.sh >/dev/null"
+
+git -C "$trust_repo" config user.email test@example.invalid
+git -C "$trust_repo" config user.name 'Trust Root Acceptance'
+git -C "$trust_repo" switch -q -c feat/trust-root-baseline
+git -C "$trust_repo" add -A
+git -C "$trust_repo" commit -q -m 'chore: establish trust-root baseline'
+git -C "$trust_repo" branch -f main HEAD
+jq '.trustRootPaths += ["SECURITY.md"]' "$trust_repo/.governance/policy.json" > "$work/policy.json"
+mv "$work/policy.json" "$trust_repo/.governance/policy.json"
+printf '/SECURITY.md @test-owner\n' >> "$trust_repo/.github/CODEOWNERS"
+git -C "$trust_repo" add -A
+git -C "$trust_repo" commit -q -m 'chore: add SECURITY.md as a trust root'
+git -C "$trust_repo" branch -f main HEAD
+git -C "$trust_repo" switch -q -c feat/edit-security-policy
+printf 'security contact policy\n' > "$trust_repo/SECURITY.md"
+git -C "$trust_repo" add SECURITY.md
+git -C "$trust_repo" commit -q -m 'docs: edit SECURITY.md'
+new_trust_root=$(cd "$trust_repo" && sh scripts/ci/classify-change.sh main HEAD)
+check 'a policy-only trust-root addition reaches the classifier without code edits' equals "$new_trust_root" 'SECURITY.md'
+
+git -C "$trust_repo" switch -q main
+git -C "$trust_repo" switch -q -c feat/attack-shrink-policy
+jq '.trustRootPaths -= ["AGENTS.md"]' "$trust_repo/.governance/policy.json" > "$work/policy.json"
+mv "$work/policy.json" "$trust_repo/.governance/policy.json"
+printf '\nmalicious rule change\n' >> "$trust_repo/AGENTS.md"
+git -C "$trust_repo" add -A
+git -C "$trust_repo" commit -q -m 'docs: shrink policy and edit AGENTS.md on the same branch'
+attack_output=$(cd "$trust_repo" && sh scripts/ci/classify-change.sh main HEAD)
+check 'a branch cannot shrink its own trust-root policy to hide its own AGENTS.md edit' contains "$attack_output" '^AGENTS\.md$'
+
 printf 'first\n' > "$repo/first.txt"
 git -C "$repo" add first.txt
 branch_output=$(cd "$repo" && sh scripts/hooks/no-commit-on-main.sh 2>&1); branch_status=$?

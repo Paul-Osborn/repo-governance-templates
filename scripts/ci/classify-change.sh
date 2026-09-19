@@ -20,11 +20,48 @@ fi
   exit 2
 }
 
+command -v jq >/dev/null 2>&1 || {
+  echo "jq is required to classify changes from the canonical governance policy." >&2
+  exit 2
+}
+
+# The canonical policy is read from the BASE commit, never the working tree or head. Reading
+# head/working-tree content here would let a single branch redefine which paths require review
+# and use that redefinition to classify its own change -- exactly the drift this consolidation
+# exists to close. GOVERNANCE_POLICY_PATH is an explicit operator/test override chosen by the
+# invoker, not derived from the diff being classified, so it does not carry that risk.
+policy_override=${GOVERNANCE_POLICY_PATH:-}
+if [ -n "$policy_override" ]; then
+  [ -f "$policy_override" ] || {
+    echo "Canonical governance policy not found: $policy_override" >&2
+    exit 2
+  }
+  policy_json=$(cat "$policy_override")
+elif git cat-file -e "$base:.governance/policy.json" 2>/dev/null; then
+  policy_json=$(git show "$base:.governance/policy.json")
+elif git cat-file -e "$base:governance-policy.template.json" 2>/dev/null; then
+  policy_json=$(git show "$base:governance-policy.template.json")
+else
+  echo "Canonical governance policy not found at base $base (.governance/policy.json or governance-policy.template.json)." >&2
+  exit 2
+fi
+
+printf '%s' "$policy_json" | jq -e '.trustRootPaths | type == "array" and length > 0 and all(.[]; type == "string" and length > 0 and (test("[\\r\\n]") | not))' >/dev/null || {
+  echo "Canonical governance policy has an invalid trustRootPaths list." >&2
+  exit 2
+}
+trust_root_patterns=$(printf '%s' "$policy_json" | jq -r '.trustRootPaths[]')
+
 is_trust_root() {
-  case "$1" in
-    AGENTS.md|REPO_RULES.md|.governance-version|.governance/*|governance-manifest.json|governance-policy.template.json|new-governed-repo.sh|new-governed-repo.ps1|update-governance.sh|update-governance.ps1|update-global-rules.sh|update-global-rules.ps1|github-governance.sh|github-governance.ps1|sync-remotes.sh|sync-remotes.ps1|github/*|lefthook.yml|.gitleaks.toml|scripts/hooks/*|scripts/ci/*|.github/workflows/*|.github/CODEOWNERS|.github/governance-profile.json|CLAUDE.md|GEMINI.md|.cursor/*|.claude/*) return 0 ;;
-    *) return 1 ;;
-  esac
+  path=$1
+  while IFS= read -r pattern; do
+    case "$path" in
+      $pattern) return 0 ;;
+    esac
+  done <<EOF
+$trust_root_patterns
+EOF
+  return 1
 }
 
 is_prose() {

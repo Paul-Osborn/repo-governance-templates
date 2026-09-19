@@ -79,4 +79,53 @@ if [ -f .github/workflows/governance.yml ]; then
   fi
 fi
 
+# One canonical trust-root list (governance-policy.template.json / installed .governance/policy.json)
+# drives every enforcement surface. CODEOWNERS and the legacy PowerShell git-guard fallback must
+# match it exactly, in both directions, or a path could silently fall out of owner review.
+if [ -f governance-manifest.json ] && [ -f AGENTS.template.md ]; then
+  trust_policy=governance-policy.template.json
+  trust_codeowners=github/CODEOWNERS.template
+  trust_fallback=git-guard.template.ps1
+else
+  trust_policy=.governance/policy.json
+  trust_codeowners=.github/CODEOWNERS
+  trust_fallback=''
+fi
+
+if [ -f "$trust_policy" ]; then
+  command -v jq >/dev/null 2>&1 || { echo "jq is required to validate trust-root consistency." >&2; exit 2; }
+
+  if [ -f "$trust_codeowners" ]; then
+    expected_codeowners=$(jq -r '.trustRootPaths[] | if endswith("/**") then "/" + .[0:length-2] else "/" + . end' "$trust_policy" | sort -u)
+    actual_codeowners=$(grep -Ev '^[[:space:]]*(#|$)' "$trust_codeowners" | awk '{print $1}' | sort -u)
+    if [ "$expected_codeowners" != "$actual_codeowners" ]; then
+      echo "CODEOWNERS has drifted from the canonical trust-root policy ($trust_policy)." >&2
+      echo "Expected:" >&2
+      printf '%s\n' "$expected_codeowners" | sed 's/^/  /' >&2
+      echo "Actual ($trust_codeowners):" >&2
+      printf '%s\n' "$actual_codeowners" | sed 's/^/  /' >&2
+      exit 1
+    fi
+  fi
+
+  if [ -n "$trust_fallback" ] && [ -f "$trust_fallback" ]; then
+    fallback_patterns=$(awk '/BEGIN CANONICAL TRUST ROOT FALLBACK/{flag=1;next}/END CANONICAL TRUST ROOT FALLBACK/{flag=0}flag' "$trust_fallback" | grep -Eo "'[^']*'" | tr -d "'" | sort -u)
+    [ -n "$fallback_patterns" ] || {
+      echo "Could not locate the CANONICAL TRUST ROOT FALLBACK markers in $trust_fallback." >&2
+      exit 1
+    }
+    canonical_patterns=$(jq -r '.trustRootPaths[]' "$trust_policy" | sort -u)
+    if [ "$fallback_patterns" != "$canonical_patterns" ]; then
+      echo "The legacy PowerShell git-guard fallback trust-root list has drifted from $trust_policy." >&2
+      echo "Canonical:" >&2
+      printf '%s\n' "$canonical_patterns" | sed 's/^/  /' >&2
+      echo "Fallback ($trust_fallback):" >&2
+      printf '%s\n' "$fallback_patterns" | sed 's/^/  /' >&2
+      exit 1
+    fi
+  fi
+
+  echo "Trust-root paths are consistent across the canonical policy, CODEOWNERS, and the legacy fallback."
+fi
+
 echo "Governance structure and version are consistent."

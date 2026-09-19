@@ -126,6 +126,32 @@ try {
     $again = & (Join-Path $kit 'update-governance.ps1') -Target $legacy *>&1 | Out-String
     Check 'PowerShell migration is idempotent' ($again -match 'Already current') $again
 
+    # git-guard.template.ps1's authority ceiling must read trustRootPaths from the branch's BASE
+    # commit, not the working tree -- otherwise a branch could shrink its own policy and use the
+    # shrunk list to hide its own edit to a now-untracked governance file (the same bypass class
+    # scripts/ci/classify-change.sh closes by reading policy at $base instead of the working tree).
+    $trustGuardRepo = Join-Path $WorkDir 'trust-guard'
+    Run-Git init -q -b main $trustGuardRepo | Out-Null
+    Run-Git -C $trustGuardRepo config user.email test@example.invalid | Out-Null
+    Run-Git -C $trustGuardRepo config user.name 'Trust Guard Acceptance' | Out-Null
+    New-Item -ItemType Directory -Path (Join-Path $trustGuardRepo '.governance') -Force | Out-Null
+    Set-Content (Join-Path $trustGuardRepo '.governance/policy.json') '{"trustRootPaths": ["AGENTS.md", "REPO_RULES.md"]}'
+    Set-Content (Join-Path $trustGuardRepo 'AGENTS.md') 'base policy'
+    Run-Git -C $trustGuardRepo add -A | Out-Null
+    Run-Git -C $trustGuardRepo commit -q -m 'chore: establish trust-guard baseline' | Out-Null
+    Run-Git -C $trustGuardRepo switch -q -c feat/attack-shrink-policy | Out-Null
+    Set-Content (Join-Path $trustGuardRepo '.governance/policy.json') '{"trustRootPaths": ["REPO_RULES.md"]}'
+    Set-Content (Join-Path $trustGuardRepo 'AGENTS.md') "base policy`nmalicious rule change"
+    Run-Git -C $trustGuardRepo add -A | Out-Null
+    Run-Git -C $trustGuardRepo commit -q -m 'docs: shrink policy and edit AGENTS.md on the same branch' | Out-Null
+    Push-Location $trustGuardRepo
+    try {
+        $payload = '{"tool_input":{"command":"gh pr merge --squash"}}'
+        $guardOut = $payload | & pwsh -NoLogo -NoProfile -File (Join-Path $kit 'git-guard.template.ps1') 2>&1 | Out-String
+    }
+    finally { Pop-Location }
+    Check 'git-guard authority ceiling reads trust roots at base, not a self-shrunk branch policy' (($guardOut -match '"permissionDecision":\s*"deny"') -and ($guardOut -match 'AGENTS\.md')) $guardOut
+
     $privatePattern = 'tail[0-9a-z]+\.ts\.net|192\.168\.[0-9]+\.[0-9]+|mini' + 'sforum|tail' + 'scale|server-' + 'router/[0-9A-Za-z]|/var/back' + 'ups/|home por' + 'tal|loopback dash' + 'board'
     Check 'PowerShell reachable Git blobs contain no private infrastructure markers' (Test-ReachableGitContent $kit $privatePattern) $null
     Check 'PowerShell reachable Git metadata contains no private infrastructure markers' (Test-ReachableGitMetadata $kit $privatePattern) $null
