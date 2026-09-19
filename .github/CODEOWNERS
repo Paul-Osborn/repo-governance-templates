@@ -1,0 +1,31 @@
+# Replace pauldavid1974 during bootstrap with the GitHub login that may ratify governance changes.
+# Only trust-root paths are listed so prose-only and ordinary non-governance changes are not forced
+# through owner review. Substantive code review is enforced by the exact-head status instead.
+/AGENTS.md @pauldavid1974
+/REPO_RULES.md @pauldavid1974
+/.governance-version @pauldavid1974
+/.governance/ @pauldavid1974
+/governance-manifest.json @pauldavid1974
+/governance-policy.template.json @pauldavid1974
+/new-governed-repo.sh @pauldavid1974
+/new-governed-repo.ps1 @pauldavid1974
+/update-governance.sh @pauldavid1974
+/update-governance.ps1 @pauldavid1974
+/update-global-rules.sh @pauldavid1974
+/update-global-rules.ps1 @pauldavid1974
+/github-governance.sh @pauldavid1974
+/github-governance.ps1 @pauldavid1974
+/sync-remotes.sh @pauldavid1974
+/sync-remotes.ps1 @pauldavid1974
+/github/ @pauldavid1974
+/lefthook.yml @pauldavid1974
+/.gitleaks.toml @pauldavid1974
+/scripts/hooks/ @pauldavid1974
+/scripts/ci/ @pauldavid1974
+/.github/workflows/ @pauldavid1974
+/.github/CODEOWNERS @pauldavid1974
+/.github/governance-profile.json @pauldavid1974
+/CLAUDE.md @pauldavid1974
+/GEMINI.md @pauldavid1974
+/.cursor/ @pauldavid1974
+/.claude/ @pauldavid1974

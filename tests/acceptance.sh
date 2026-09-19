@@ -156,13 +156,13 @@ git -C "$repo" commit -q -m 'docs: propose policy change'
 (cd "$repo" && scripts/ci/verify-review.sh --mode local-attestation --base main >/dev/null 2>&1); stale_status=$?
 check 'governance Markdown is substantive and invalidates review' test "$stale_status" -ne 0
 
-# A real V2 file from this repository's main branch exercises known-hash migration.
+# Pinned V2 fixtures exercise known-hash migration without depending on a moving branch.
 legacy="$work/v2-project"
 mkdir -p "$legacy/scripts/hooks"
 printf 'legacy policy\n' > "$legacy/AGENTS.md"
 printf 'project source\n' > "$legacy/source.txt"
-git -C "$kit" show main:no-commit-on-main.template.sh > "$legacy/scripts/hooks/no-commit-on-main.sh"
-git -C "$kit" show main:lefthook.template.yml > "$legacy/lefthook.yml"
+cp "$kit/tests/fixtures/v2/no-commit-on-main.sh" "$legacy/scripts/hooks/no-commit-on-main.sh"
+cp "$kit/tests/fixtures/v2/lefthook.yml" "$legacy/lefthook.yml"
 printf '2.0.0\n' > "$legacy/.governance-version"
 dry_output=$("$kit/update-governance.sh" --target "$legacy" --dry-run 2>&1); dry_status=$?
 check 'V2 migration dry-run succeeds' test "$dry_status" -eq 0
@@ -180,7 +180,7 @@ check 'second run reports current' contains "$second_output" 'Already current'
 custom="$work/v2-customized"
 mkdir -p "$custom/scripts/hooks"
 printf 'legacy policy\n' > "$custom/AGENTS.md"
-git -C "$kit" show main:no-commit-on-main.template.sh > "$custom/scripts/hooks/no-commit-on-main.sh"
+cp "$kit/tests/fixtures/v2/no-commit-on-main.sh" "$custom/scripts/hooks/no-commit-on-main.sh"
 printf '\n# project-specific branch policy\n' >> "$custom/scripts/hooks/no-commit-on-main.sh"
 printf '2.0.0\n' > "$custom/.governance-version"
 custom_before=$(sha256sum "$custom/scripts/hooks/no-commit-on-main.sh" | awk '{print $1}')
