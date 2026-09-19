@@ -17,6 +17,7 @@ jobs:
     if: github.repository == github.event.pull_request.base.repo.full_name && github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
       statuses: write
     steps:
@@ -26,6 +27,7 @@ jobs:
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login }}
         shell: bash
         run: |
@@ -33,14 +35,30 @@ jobs:
           context='governance/exact-head-review'
           description='Independent review must approve this exact PR head'
 
+          policy=$(gh api "repos/$REPOSITORY/contents/.governance/policy.json?ref=$BASE_SHA" \
+            --jq '.content' | tr -d '\n' | base64 --decode)
+          jq -e '.trustRootPaths | type == "array" and length > 0 and all(.[]; type == "string" and length > 0)' \
+            <<<"$policy" >/dev/null
+          mapfile -t trust_roots < <(jq -r '.trustRootPaths[]' <<<"$policy")
+
+          is_trust_root() {
+            local path=$1 pattern
+            for pattern in "${trust_roots[@]}"; do
+              case "$path" in
+                $pattern) return 0 ;;
+              esac
+            done
+            return 1
+          }
+
           changed=$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename')
-          substantive=$(printf '%s\n' "$changed" | awk '
-            function trust(p) {
-              return p ~ /^(AGENTS\.md|REPO_RULES\.md|\.governance-version|\.governance\/|governance-manifest\.json|governance-policy\.template\.json|new-governed-repo\.(sh|ps1)|update-(governance|global-rules)\.(sh|ps1)|github-governance\.(sh|ps1)|sync-remotes\.(sh|ps1)|github\/|lefthook\.yml|\.gitleaks\.toml|scripts\/(hooks|ci)\/|\.github\/(workflows\/|CODEOWNERS$|governance-profile\.json$)|CLAUDE\.md|GEMINI\.md|\.cursor\/|\.claude\/)/
-            }
-            trust($0) { print; next }
-            $0 !~ /\.(md|markdown|txt|rst|adoc)$/ { print }
-          ')
+          substantive=''
+          while IFS= read -r path; do
+            [[ -n "$path" ]] || continue
+            if is_trust_root "$path" || [[ ! "$path" =~ \.(md|markdown|txt|rst|adoc)$ ]]; then
+              substantive+="$path"$'\n'
+            fi
+          done <<<"$changed"
 
           state=failure
           if [[ -z "$substantive" ]]; then

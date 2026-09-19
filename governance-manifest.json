@@ -55,8 +55,8 @@
       "template": "governance-policy.template.json",
       "dest": ".governance/policy.json",
       "note": "Machine-readable trust roots and review mode.",
-      "sha256": "2b225c1663221d84016834a8c3e62f296951d3da881faa3fe32e06c9bdb8753b",
-      "knownHashes": []
+      "sha256": "a48ccce9dc3de5e7da45e6a6b7c68269f7656d57a7a6e488ca794bfbe955ca91",
+      "knownHashes": ["2b225c1663221d84016834a8c3e62f296951d3da881faa3fe32e06c9bdb8753b"]
     },
     {
       "template": "review-attestation.template.json",
@@ -69,8 +69,8 @@
       "template": "scripts/ci/classify-change.template.sh",
       "dest": "scripts/ci/classify-change.sh",
       "note": "Deterministic prose/substantive classifier.",
-      "sha256": "8d15f0e74b2c22de96717d14e9a710913c0a088c1cb6e0d5411bbda5facef11c",
-      "knownHashes": []
+      "sha256": "5cce1e06c1a89093606af6ed316c71a730a249d3fcc9575bc5a46d86080a5927",
+      "knownHashes": ["8d15f0e74b2c22de96717d14e9a710913c0a088c1cb6e0d5411bbda5facef11c"]
     },
     {
       "template": "scripts/ci/verify-review.template.sh",
@@ -83,8 +83,8 @@
       "template": "scripts/ci/validate-governance.template.sh",
       "dest": "scripts/ci/validate-governance.sh",
       "note": "Governance structure and workflow pin validation.",
-      "sha256": "6837a1a54810935fbc790b484582714fca37652978588ac9b424260cdfa8bdf5",
-      "knownHashes": []
+      "sha256": "578079aade4da088836e20d6fae85fe873dbc80b08715fd453c5371895e975a2",
+      "knownHashes": ["6837a1a54810935fbc790b484582714fca37652978588ac9b424260cdfa8bdf5"]
     },
     {
       "template": "project-checks.template.sh",
@@ -105,8 +105,8 @@
       "template": "github/workflows/review-gate.template.yml",
       "dest": ".github/workflows/review-gate.yml",
       "note": "Protected-base exact-head review status producer.",
-      "sha256": "dd25873b2d28755ad882c53336fa87da1209ce7b08d99e57d21ee2f20af8caa1",
-      "knownHashes": []
+      "sha256": "24af8c303e9acb6bcbd79876a7f82c40b2e10357c7ec8e1d89e8429118f125cf",
+      "knownHashes": ["dd25873b2d28755ad882c53336fa87da1209ce7b08d99e57d21ee2f20af8caa1"]
     },
     {
       "template": "github/CODEOWNERS.template",

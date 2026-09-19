@@ -73,28 +73,54 @@ $cmdClean = $cmd -replace '"[^"]*"', '""' -replace "'[^']*'", "''"
 # ---------------------------------------------------------------------------
 # Shared: which files are "governance" (rules, gates, authority)
 # ---------------------------------------------------------------------------
-# One list, used by both the review-receipt classifier and the authority ceiling, so the
-# two can never drift apart. Paths are repo-relative with forward slashes.
-$GovernancePatterns = @(
-    '^AGENTS\.md$',
-    '^CLAUDE\.md$',
-    '^GEMINI\.md$',
-    '^REPO_RULES\.md$',
-    '^\.claude/',
-    '^\.cursor/',
-    '^\.github/workflows/',
-    '^\.github/CODEOWNERS$',
-    '^\.github/governance-profile\.json$',
-    '^\.governance/',
-    '^governance-manifest\.json$',
-    '^governance-policy\.template\.json$',
-    '^(new-governed-repo|update-governance|update-global-rules|github-governance|sync-remotes)\.(sh|ps1)$',
-    '^github/',
-    '^scripts/hooks/',
-    '^lefthook\.yml$',
-    '^\.gitleaks\.toml$',
-    '^\.governance-version$'
-)
+# The installed canonical policy is preferred. The literal fallback keeps this legacy V2 adapter
+# usable before migration and is deterministically checked against governance-policy.template.json.
+$GovernancePatterns = $null
+try {
+    $repoRoot = (& git rev-parse --show-toplevel 2>$null | Out-String).Trim()
+    $policyPath = if ($repoRoot) { Join-Path $repoRoot '.governance/policy.json' } else { $null }
+    if ($policyPath -and (Test-Path $policyPath)) {
+        $policy = Get-Content $policyPath -Raw | ConvertFrom-Json
+        $GovernancePatterns = @($policy.trustRootPaths)
+    }
+} catch {
+    $GovernancePatterns = $null
+}
+
+if (-not $GovernancePatterns) {
+    # BEGIN CANONICAL TRUST ROOT FALLBACK
+    $GovernancePatterns = @(
+        'AGENTS.md',
+        'REPO_RULES.md',
+        '.governance-version',
+        '.governance/**',
+        'governance-manifest.json',
+        'governance-policy.template.json',
+        'new-governed-repo.sh',
+        'new-governed-repo.ps1',
+        'update-governance.sh',
+        'update-governance.ps1',
+        'update-global-rules.sh',
+        'update-global-rules.ps1',
+        'github-governance.sh',
+        'github-governance.ps1',
+        'sync-remotes.sh',
+        'sync-remotes.ps1',
+        'github/**',
+        'lefthook.yml',
+        '.gitleaks.toml',
+        'scripts/hooks/**',
+        'scripts/ci/**',
+        '.github/workflows/**',
+        '.github/CODEOWNERS',
+        '.github/governance-profile.json',
+        'CLAUDE.md',
+        'GEMINI.md',
+        '.cursor/**',
+        '.claude/**'
+    )
+    # END CANONICAL TRUST ROOT FALLBACK
+}
 
 # The review receipt lives under .claude/ but is EVIDENCE, not authority. If it counted as
 # governance it would be self-defeating twice over: committing the receipt would change the
@@ -105,8 +131,9 @@ function Test-ReviewEvidence([string]$path) {
 }
 
 function Test-Governance([string]$path) {
-    if (Test-ReviewEvidence $path) { return $false }
-    foreach ($p in $GovernancePatterns) { if ($path -match $p) { return $true } }
+    $normalized = $path -replace '\\', '/'
+    if (Test-ReviewEvidence $normalized) { return $false }
+    foreach ($p in $GovernancePatterns) { if ($normalized -like $p) { return $true } }
     return $false
 }
 

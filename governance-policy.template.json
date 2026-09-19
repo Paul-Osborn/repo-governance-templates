@@ -31,6 +31,7 @@
     "scripts/ci/**",
     ".github/workflows/**",
     ".github/CODEOWNERS",
+    ".github/governance-profile.json",
     "CLAUDE.md",
     "GEMINI.md",
     ".cursor/**",
