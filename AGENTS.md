@@ -41,7 +41,10 @@ defer unrelated cleanup.
 3. Run the smallest relevant checks while working and the complete relevant suite before review.
 4. Push completed work to the authoritative remote and any configured mirrors without force.
 5. Obtain independent review for normal and high-risk work. A deterministically prose-only change
-   is exempt. Review must cover the exact code state submitted.
+   is exempt, and so is any repository that sets `review.requireIndependentReview` to `false` in
+   `governance-profile.json` — an explicit owner choice for solo or AI-authored work with no
+   second human available; the reusable template defaults this to `true`. Review must cover the
+   exact code state submitted.
 6. Open a pull request with the outcome, test evidence, migration notes, and limitations. Never
    merge red. Never bypass required checks.
 7. A change to a governance/control file is a proposal only. An agent may author and submit it,

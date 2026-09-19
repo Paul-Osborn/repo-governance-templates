@@ -32,9 +32,12 @@ Write-Host '  required checks:'
 $reviewContext = $desired.review.statusContext
 $defaultIntegrationId = $desired.review.preferredTrustedIntegrationId
 $reviewerAppId = $desired.review.externalReviewerAppId
+$requireReview = if ($null -eq $desired.review.requireIndependentReview) { $true } else { $desired.review.requireIndependentReview }
 foreach ($check in $desired.requiredStatusChecks) {
     if ($check -eq $reviewContext) {
-        if ($reviewerAppId) {
+        if (-not $requireReview) {
+            Write-Host "    - $check (independent review not required by policy; this check always succeeds)"
+        } elseif ($reviewerAppId) {
             Write-Host "    - $check (integration_id $reviewerAppId, dedicated reviewer App)"
         } else {
             Write-Host "    - $check (integration_id $defaultIntegrationId, default Actions identity; no reviewer App configured yet)"

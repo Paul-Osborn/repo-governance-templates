@@ -61,6 +61,13 @@ jobs:
             <<<"$policy" >/dev/null
           mapfile -t trust_roots < <(jq -r '.trustRootPaths[]' <<<"$policy")
 
+          # Read from BASE_SHA, never from the PR's own copy: a PR must not be able to flip this
+          # flag in its own diff to escape review for itself.
+          profile=$(gh api "repos/$REPOSITORY/contents/.github/governance-profile.json?ref=$BASE_SHA" \
+            --jq '.content' 2>/dev/null | tr -d '\n' | base64 --decode 2>/dev/null) || profile='{}'
+          require_review=$(jq -r '.review.requireIndependentReview as $v | if $v == null then true else $v end' \
+            <<<"$profile" 2>/dev/null) || require_review=true
+
           is_trust_root() {
             local path=$1 pattern
             for pattern in "${trust_roots[@]}"; do
@@ -84,6 +91,9 @@ jobs:
           if [[ -z "$substantive" ]]; then
             state=success
             description='Deterministically classified as prose-only'
+          elif [[ "$require_review" == "false" ]]; then
+            state=success
+            description='Independent review not required by repository policy'
           else
             reviewer=$(gh api --paginate "repos/$REPOSITORY/pulls/$PR_NUMBER/reviews" \
               --jq ".[] | select(.state == \"APPROVED\" and .commit_id == \"$HEAD_SHA\" and .user.login != \"$PR_AUTHOR\") | .user.login" |
