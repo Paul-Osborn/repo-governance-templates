@@ -113,3 +113,53 @@ jobs:
         run: |
           command -v pwsh >/dev/null 2>&1
           sh scripts/ci/project-checks.sh
+
+  windows:
+    name: Governance / windows-verification
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record host tool versions
+        shell: pwsh
+        run: |
+          Write-Host "Runner OS: $env:RUNNER_OS  Image: $env:ImageOS"
+          git --version
+          $PSVersionTable.PSVersion
+          & sh --version
+      - name: Install checksum-pinned Gitleaks and Lefthook for Windows
+        shell: pwsh
+        env:
+          GITLEAKS_VERSION: 8.30.1
+          GITLEAKS_SHA256: d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e
+          LEFTHOOK_VERSION: 2.1.14
+          LEFTHOOK_SHA256: ca196e8c76a28a2969b1be09b64b5dc538eeb6d367c5ad36a00db9b3acfd806e
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $toolDir = Join-Path $env:RUNNER_TEMP 'governance-tools'
+          New-Item -ItemType Directory -Path $toolDir -Force | Out-Null
+
+          $gitleaksZip = Join-Path $env:RUNNER_TEMP "gitleaks_$($env:GITLEAKS_VERSION)_windows_x64.zip"
+          Invoke-WebRequest -Uri "https://github.com/gitleaks/gitleaks/releases/download/v$($env:GITLEAKS_VERSION)/gitleaks_$($env:GITLEAKS_VERSION)_windows_x64.zip" -OutFile $gitleaksZip
+          $gitleaksHash = (Get-FileHash -Path $gitleaksZip -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($gitleaksHash -ne $env:GITLEAKS_SHA256) {
+            throw "Gitleaks checksum mismatch: expected $($env:GITLEAKS_SHA256), got $gitleaksHash"
+          }
+          Expand-Archive -Path $gitleaksZip -DestinationPath $toolDir -Force
+
+          $lefthookExe = Join-Path $toolDir 'lefthook.exe'
+          Invoke-WebRequest -Uri "https://github.com/evilmartians/lefthook/releases/download/v$($env:LEFTHOOK_VERSION)/lefthook_$($env:LEFTHOOK_VERSION)_Windows_x86_64.exe" -OutFile $lefthookExe
+          $lefthookHash = (Get-FileHash -Path $lefthookExe -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($lefthookHash -ne $env:LEFTHOOK_SHA256) {
+            throw "Lefthook checksum mismatch: expected $($env:LEFTHOOK_SHA256), got $lefthookHash"
+          }
+
+          Add-Content -Path $env:GITHUB_PATH -Value $toolDir
+      - name: Run native Windows acceptance suite
+        shell: pwsh
+        run: .\tests\acceptance.ps1
