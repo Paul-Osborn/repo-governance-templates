@@ -13,10 +13,16 @@
   large-file range gate fail closed when Git cannot resolve the comparison.
 - **Verified by:** Linux/Omarchy acceptance suite (70 checks), PowerShell 7.6.6 compatibility
   suite on Linux (16 checks), manifest consistency, ShellCheck, actionlint, offline zizmor,
-  Gitleaks, JSON/YAML/shell syntax, and rewritten-history private-data scans. Native Windows
-  execution remains pending under issue #9.
-- **Next:** live-test the remote ruleset on a disposable public repository, then obtain a new
-  independent review bound to the stabilized exact HEAD.
+  Gitleaks, JSON/YAML/shell syntax, and rewritten-history private-data scans. A disposable public
+  [ruleset test repository](https://github.com/Paul-Osborn/governance-v3-ruleset-live-test-20260919)
+  and [evidence PR](https://github.com/Paul-Osborn/governance-v3-ruleset-live-test-20260919/pull/1)
+  confirmed that direct default-branch pushes are rejected, all four executable CI jobs pass,
+  the exact-head status fails closed without independent approval, and GitHub blocks merging until
+  someone other than the last pusher approves. The organization-enforced Actions setting prevents
+  `github-actions[bot]` from opening or approving pull requests, so a positive two-identity approval
+  transition remains tracked by issue #10. Native Windows execution remains pending under issue #9.
+- **Next:** request GitHub Support cleanup of the rewritten repository's cached pull-request views
+  and internal references, then obtain a new independent review bound to the stabilized exact HEAD.
 - **Open decisions:** none; issues #8, #9, and #10 own the accepted follow-up work.
 
 ## 2026-09-05 — Deterministic V1 fixture
