@@ -2,6 +2,40 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-09-19 — Wire native GitHub review settings to governance-profile.json
+
+- **Branch:** `fix/v3-ruleset-review-wiring`.
+- **Changed:** A strict-ruleset activation preflight (read-only; `--apply` was never run) found that
+  `review.requireIndependentReview` only ever governed the custom `governance/exact-head-review`
+  status check — GitHub's own native `require_code_owner_review` / `require_last_push_approval`
+  rule was hardcoded `true` in the static ruleset template regardless of the profile. Since this
+  repository's `CODEOWNERS` names only its solo maintainer, applying the ruleset as shipped would
+  have made every governance-affecting PR unmergeable (no second identity exists to approve, and
+  GitHub doesn't allow self-approval). `github-governance.sh`/`.ps1` now derive
+  `required_approving_review_count`, `dismiss_stale_reviews_on_push`, `require_code_owner_review`,
+  and `require_last_push_approval` from the profile's `review.requiredApprovals`,
+  `dismissStaleApprovals`, `requireCodeOwnerReview`, and `requireLastPushApproval` fields — for both
+  the ruleset path and the classic-branch-protection fallback — using an explicit null-check so an
+  explicit `false`/`0` is preserved rather than silently replaced by jq's `//` or PowerShell's naive
+  `-or`. This repository's own profile now sets `requireCodeOwnerReview`/`requireLastPushApproval`
+  to `false`, consistent with its existing `requireIndependentReview: false`; the reusable template
+  keeps `true`/`true`/`0`/`true` as shipped defaults for downstream teams. Also added
+  `Governance / windows-verification` to this repository's own required status checks (it already
+  runs and passes on every PR) without making it a downstream-consumer requirement.
+- **Verified by:** `sh tests/acceptance.sh` (new coverage: explicit `false`/`0` survives for both
+  `sh` and PowerShell, missing fields still fail closed to strict defaults, and the two
+  implementations produce byte-identical `pull_request` rule parameters for the same input);
+  `pwsh tests/acceptance.ps1` (22/22, via an isolated `mise exec powershell@7.6.6` invocation that
+  does not touch global `mise` config, since this shell has no pinned global `pwsh`);
+  `scripts/ci/validate-governance.sh`; manual fake-`gh` runs of both the ruleset and classic
+  fallback paths in both languages.
+- **Next:** re-run the strict-ruleset activation preflight against `main` once this merges; if the
+  code-owner/last-push blocker is confirmed gone, the owner activates the ruleset
+  (`github-governance.sh --apply`) — owner approval for that eventual step was already given.
+- **Open decisions:** none blocking; a pre-existing, unrelated local environment gap remains
+  (`lefthook`/`pwsh`/`zizmor` have no pinned global `mise` version in this interactive shell — CI
+  is unaffected).
+
 ## 2026-09-19 — Dedicated reviewer App + optional independent review (issue #10)
 
 - **Branches:** `feat/v3-reviewer-app-identity` → PR #14; `feat/v3-optional-independent-review` → PR #15.

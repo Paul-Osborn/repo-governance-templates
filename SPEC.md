@@ -1,63 +1,56 @@
-# Optional independent-review opt-out
+# Wire native GitHub review settings to governance-profile.json
 
 ## Outcome
 
-Let an owner explicitly turn off the independent-review requirement for a repository with no
-second human reviewer available (a solo maintainer doing AI-authored work), without weakening the
-reusable template's default for teams that do have a second reviewer.
-
-## Motivation
-
-This repository's own `governance/exact-head-review` check requires an `APPROVED` GitHub review
-from someone other than the PR author on the exact head SHA. For a solo maintainer directing an AI
-agent, no such second identity exists by default, which made every governance-affecting PR
-(including PR #14, the reviewer-App work) unable to pass that check on its own terms. `AGENTS.md`
-already reserves final ratification of governance/control-file changes to the human owner (rule 7);
-this change makes the review-gate mechanism itself aware of that reality instead of leaving it as
-an unstated exception.
+Fix a gap found during the strict-ruleset activation preflight: `review.requireIndependentReview`
+correctly governs the custom `governance/exact-head-review` status check, but GitHub's own native
+`require_code_owner_review` / `require_last_push_approval` rule was hardcoded `true` in the static
+ruleset template, independent of any profile setting. For this repository — a solo maintainer whose
+`CODEOWNERS` names only themselves — applying the ruleset as shipped would have made every future
+governance-affecting PR unmergeable through GitHub's own UI (no one else can approve, and
+self-approval isn't possible). This work wires those settings to the profile so the opt-out this
+repository already made is consistent everywhere it's enforced, not just in the custom check.
 
 ## In scope
 
-- `governance-profile.json` (both `github/` template and this repo's `.github/` instance): add
-  `review.requireIndependentReview`, defaulting to `true` in the template, set to `false` here.
-- `.github/workflows/review-gate.yml` / `github/workflows/review-gate.template.yml`: read the flag
-  from the pull request's **base SHA** copy of `.github/governance-profile.json` (never the PR's
-  own copy — the same base-ref-only pattern already used for `trustRootPaths`), so a PR cannot
-  weaken this setting in its own diff to escape review for itself. When `false`, the status still
-  runs and posts on every PR but always succeeds, keeping the choice visible rather than removing
-  the check outright.
-- `github-governance.sh` / `.ps1`: plan output states plainly when a required check is a no-op
-  because independent review is not required by policy.
-- `AGENTS.md` / `AGENTS.template.md` rule 5, `REPO_RULES.md` / `REPO_RULES.template.md` §6,
-  `docs/security-model.md`: document the opt-out, its default, and why it isn't a silent bypass.
-- `governance-manifest.json`: updated normalized hashes for the two changed managed/add-only
-  templates, prior hashes preserved in `knownHashes`.
+- `github-governance.sh` / `.ps1`: derive the ruleset's (and classic-branch-protection fallback's)
+  `required_approving_review_count`, `dismiss_stale_reviews_on_push`, `require_code_owner_review`,
+  and `require_last_push_approval` from `review.requiredApprovals`, `review.dismissStaleApprovals`,
+  `review.requireCodeOwnerReview`, and `review.requireLastPushApproval` respectively, instead of the
+  static template's hardcoded values. Booleans use an explicit `$v == null` check, not jq's `//` or
+  PowerShell's naive `-or`, since both would silently treat an explicit `false` as "unset."
+- `.github/governance-profile.json` (this repo only): set `requireCodeOwnerReview: false` and
+  `requireLastPushApproval: false`, consistent with `requireIndependentReview: false` already set
+  here — the same solo-maintainer rationale, now applied where it actually takes effect on GitHub's
+  side. Also add `Governance / windows-verification` to `requiredStatusChecks`: it runs and passes
+  on every PR already and is part of this kit's own acceptance surface, so it should be enforced
+  once the ruleset is real.
+- `github/governance-profile.json` (reusable template): unchanged — `true`/`true`/`0`/`true` remain
+  the shipped defaults for downstream teams. `Governance / windows-verification` is deliberately
+  *not* added here; it tests this kit's own bootstrap/migration behavior, not a downstream project's
+  code, so it must not become a mandatory Windows-CI requirement for every consumer.
+- `tests/acceptance.sh`: new coverage proving (a) explicit `false`/`0` review settings survive into
+  the applied payload for both `sh` and (guarded by a real, working `pwsh`) PowerShell, (b) missing
+  fields still fail closed to the strict defaults, and (c) the two implementations produce
+  byte-identical `pull_request` rule parameters for the same input profile.
+- `docs/security-model.md`: document that `requireIndependentReview` only ever governed the custom
+  status check, and that the native review rule is now separately, explicitly wired.
 
 ## Out of scope
 
-- Changing `requiredApprovals`, `requireCodeOwnerReview`, or any other native GitHub
-  branch-protection review setting.
-- Applying the strict ruleset (`github-governance.sh --apply`) — remains plan-only per `AGENTS.md`.
-- The `local-attestation` review mode in `scripts/ci/verify-review.sh` (a separate, already-weaker
-  fallback for hosts without a review API); not wired into any live check today, left unchanged.
-
-## Known bug fixed during implementation
-
-`jq`'s `//` operator treats a literal `false` the same as `null` (both are falsy), so a naive
-`.review.requireIndependentReview // true` silently ignored an explicit `false`. Fixed with
-`.review.requireIndependentReview as $v | if $v == null then true else $v end` everywhere the flag
-is read, so only a genuinely absent field falls back to the safe default (`true`, still require
-review).
+- Actually running `github-governance.sh --apply` — that's the owner's decision, made separately,
+  after this fix merges and a fresh preflight confirms the blocker is gone.
+- Any change to `review-gate.yml`'s base-SHA-only read pattern (already correct, untouched).
+- `refs/pull/*` and GitHub Support ticket #4773987 — untouched, not part of this change.
 
 ## Completion evidence
 
-- `sh tests/acceptance.sh`: 81/81 relevant checks pass (one unrelated environment failure —
-  `lefthook` not resolved by `mise` in this shell — predates this change and is not caused by it).
-- `sh scripts/ci/validate-governance.sh` and `sh -n ./*.sh ./*.template.sh scripts/ci/*.sh` pass.
+- `sh tests/acceptance.sh`: all new checks pass; one pre-existing, unrelated environment failure
+  (`lefthook` not resolved by `mise` in this shell) persists, not caused by this change.
+- Manually verified (via `mise exec powershell@7.6.6 -- pwsh`, an isolated invocation that does not
+  touch global `mise` config) that the PowerShell path produces byte-identical `pull_request`
+  parameters to the shell path, for both the explicit-`false` fixture and the fields-omitted
+  fixture, on both the ruleset path and the classic-branch-protection fallback path.
 - `./github-governance.sh --repo Paul-Osborn/repo-governance-templates --profile .github/governance-profile.json`
-  shows `governance/exact-head-review (independent review not required by policy; this check
-  always succeeds)` instead of a reviewer-App or default-identity binding.
-- This PR itself still requires independent review under `main`'s current (pre-merge) policy — it
-  is a governance/control-file change ratified by the owner merging it directly, per `AGENTS.md`
-  rule 7 — and is the first live opportunity to confirm `governance/exact-head-review` posts under
-  the dedicated reviewer App's identity now that PR #14 is on `main`.
+  now prints `code owner review: false; last-push approval: false` for this repository, and the
+  same command against the reusable template's profile still prints `true`/`true`.

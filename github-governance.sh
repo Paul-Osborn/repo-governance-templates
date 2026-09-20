@@ -33,6 +33,10 @@ review_context=$(jq -r '.review.statusContext' "$profile")
 default_integration_id=$(jq -r '.review.preferredTrustedIntegrationId' "$profile")
 reviewer_app_id=$(jq -r '.review.externalReviewerAppId // empty' "$profile")
 require_review=$(jq -r '.review.requireIndependentReview as $v | if $v == null then true else $v end' "$profile")
+required_approving_review_count=$(jq -r '.review.requiredApprovals // 0' "$profile")
+dismiss_stale_reviews=$(jq -r '.review.dismissStaleApprovals as $v | if $v == null then true else $v end' "$profile")
+require_code_owner_review=$(jq -r '.review.requireCodeOwnerReview as $v | if $v == null then true else $v end' "$profile")
+require_last_push_approval=$(jq -r '.review.requireLastPushApproval as $v | if $v == null then true else $v end' "$profile")
 
 rulesets_tmp=$(mktemp)
 err_tmp=$(mktemp)
@@ -67,7 +71,7 @@ while IFS= read -r check; do
 done <<CHECKS
 $(jq -r '.requiredStatusChecks[]' "$profile")
 CHECKS
-echo "  pull requests: required; stale approvals dismissed; code owner + last-push approval"
+echo "  pull requests: required; approving reviews required: $required_approving_review_count; stale approvals dismissed: $dismiss_stale_reviews; code owner review: $require_code_owner_review; last-push approval: $require_last_push_approval"
 echo "  history: force pushes and deletion blocked; linear history required"
 echo "  workflow token default: read; Actions cannot approve PRs"
 
@@ -100,9 +104,17 @@ if [ "$capability" = rulesets ]; then
         integration_id: (if . == $reviewContext and $appId != null then $appId else $defaultId end)
       }
     ]' "$profile")
-  jq --arg name "$ruleset_name" --argjson checks "$checks" '
+  jq --arg name "$ruleset_name" --argjson checks "$checks" \
+     --argjson approvals "$required_approving_review_count" \
+     --argjson dismissStale "$dismiss_stale_reviews" \
+     --argjson codeOwner "$require_code_owner_review" \
+     --argjson lastPush "$require_last_push_approval" '
     .name = $name |
-    (.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks) = $checks
+    (.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks) = $checks |
+    (.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count) = $approvals |
+    (.rules[] | select(.type == "pull_request") | .parameters.dismiss_stale_reviews_on_push) = $dismissStale |
+    (.rules[] | select(.type == "pull_request") | .parameters.require_code_owner_review) = $codeOwner |
+    (.rules[] | select(.type == "pull_request") | .parameters.require_last_push_approval) = $lastPush
   ' "$script_dir/github/rulesets/default-branch.json" > "$payload_tmp"
   if [ -n "${existing:-}" ]; then
     gh api --method PUT "repos/$repo/rulesets/$existing" --input "$payload_tmp" >/dev/null
@@ -112,13 +124,17 @@ if [ "$capability" = rulesets ]; then
   echo "Applied GitHub ruleset '$ruleset_name'."
 else
   contexts=$(jq '.requiredStatusChecks' "$profile")
-  jq -n --argjson contexts "$contexts" '{
+  jq -n --argjson contexts "$contexts" \
+        --argjson approvals "$required_approving_review_count" \
+        --argjson dismissStale "$dismiss_stale_reviews" \
+        --argjson codeOwner "$require_code_owner_review" \
+        --argjson lastPush "$require_last_push_approval" '{
     required_status_checks: {strict: true, contexts: $contexts},
     enforce_admins: true,
     required_pull_request_reviews: {
-      dismissal_restrictions: {}, dismiss_stale_reviews: true,
-      require_code_owner_reviews: true, required_approving_review_count: 0,
-      require_last_push_approval: true, bypass_pull_request_allowances: {}
+      dismissal_restrictions: {}, dismiss_stale_reviews: $dismissStale,
+      require_code_owner_reviews: $codeOwner, required_approving_review_count: $approvals,
+      require_last_push_approval: $lastPush, bypass_pull_request_allowances: {}
     },
     restrictions: null, required_linear_history: true,
     allow_force_pushes: false, allow_deletions: false,

@@ -323,6 +323,94 @@ check 'GitHub apply refuses an unresolved governance owner' test "$apply_status"
 check 'GitHub apply explains the unresolved owner' contains "$apply_output" 'replace <owner>|Replace <owner>'
 check 'refused GitHub apply still makes no mutation call' test ! -s "$mutation_log"
 
+# A second fake gh with a resolvable owner captures the ruleset payload itself, so explicit
+# false/0 review settings can be proven to survive into the applied pull_request rule instead of
+# being silently replaced by the static template's hardcoded true values (or, worse, by jq's `//`
+# treating an explicit `false` as if it were missing).
+fake_bin_ruleset="$work/fake-bin-ruleset"
+mkdir -p "$fake_bin_ruleset"
+cat > "$fake_bin_ruleset/gh" <<'EOF'
+#!/bin/sh
+input_file=""
+prev=""
+for arg in "$@"; do
+  if [ "$prev" = "--input" ]; then input_file=$arg; fi
+  prev=$arg
+done
+case "$*" in
+  'api repos/owner/repo/rulesets')
+    printf '%s\n' '[]' ;;
+  'api repos/owner/repo')
+    printf '%s\n' '{"default_branch":"main","visibility":"public"}' ;;
+  *'repos/owner/repo/rulesets'*'--input'*)
+    if [ -n "$input_file" ] && [ -n "${GOVERNANCE_FAKE_GH_RULESET_CAPTURE:-}" ]; then
+      cp "$input_file" "$GOVERNANCE_FAKE_GH_RULESET_CAPTURE"
+    fi
+    printf '%s\n' '{}' ;;
+  *)
+    printf '%s\n' '{}' ;;
+esac
+EOF
+chmod +x "$fake_bin_ruleset/gh"
+
+explicit_false_profile="$work/profile-explicit-false.json"
+jq -n '{
+  schemaVersion: 1, profileName: "Test", defaultBranch: "main", governanceOwner: "owner",
+  rulesetName: "test-ruleset",
+  requiredStatusChecks: ["Governance / invariants", "governance/exact-head-review"],
+  review: {
+    requiredApprovals: 0, dismissStaleApprovals: false, requireCodeOwnerReview: false,
+    requireLastPushApproval: false, requireConversationResolution: true,
+    statusContext: "governance/exact-head-review", preferredTrustedIntegrationId: 15368,
+    externalReviewerAppId: null, requireIndependentReview: false
+  },
+  history: {requirePullRequest: true, requireLinearHistory: true, blockForcePush: true, blockDeletion: true},
+  actions: {defaultWorkflowPermissions: "read", canApprovePullRequestReviews: false}
+}' > "$explicit_false_profile"
+
+missing_fields_profile="$work/profile-missing-fields.json"
+jq -n '{
+  schemaVersion: 1, profileName: "Test", defaultBranch: "main", governanceOwner: "owner",
+  rulesetName: "test-ruleset",
+  requiredStatusChecks: ["Governance / invariants", "governance/exact-head-review"],
+  review: {
+    statusContext: "governance/exact-head-review", preferredTrustedIntegrationId: 15368
+  },
+  history: {requirePullRequest: true, requireLinearHistory: true, blockForcePush: true, blockDeletion: true},
+  actions: {defaultWorkflowPermissions: "read", canApprovePullRequestReviews: false}
+}' > "$missing_fields_profile"
+
+ruleset_capture_sh="$work/ruleset-explicit-false-sh.json"
+PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_sh" \
+  "$kit/github-governance.sh" --repo owner/repo --profile "$explicit_false_profile" --apply >/dev/null 2>&1
+pr_params_sh() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_sh"; }
+check 'sh: explicit requireCodeOwnerReview=false survives into the ruleset' equals "$(pr_params_sh require_code_owner_review)" 'false'
+check 'sh: explicit requireLastPushApproval=false survives into the ruleset' equals "$(pr_params_sh require_last_push_approval)" 'false'
+check 'sh: explicit dismissStaleApprovals=false survives into the ruleset' equals "$(pr_params_sh dismiss_stale_reviews_on_push)" 'false'
+check 'sh: requiredApprovals=0 reaches the ruleset' equals "$(pr_params_sh required_approving_review_count)" '0'
+
+ruleset_capture_sh_defaults="$work/ruleset-missing-fields-sh.json"
+PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_sh_defaults" \
+  "$kit/github-governance.sh" --repo owner/repo --profile "$missing_fields_profile" --apply >/dev/null 2>&1
+pr_params_sh_defaults() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_sh_defaults"; }
+check 'sh: missing requireCodeOwnerReview defaults to true (fails closed)' equals "$(pr_params_sh_defaults require_code_owner_review)" 'true'
+check 'sh: missing requireLastPushApproval defaults to true (fails closed)' equals "$(pr_params_sh_defaults require_last_push_approval)" 'true'
+check 'sh: missing dismissStaleApprovals defaults to true (fails closed)' equals "$(pr_params_sh_defaults dismiss_stale_reviews_on_push)" 'true'
+
+if command -v pwsh >/dev/null 2>&1 && pwsh -NoLogo -NoProfile -Command 'exit 0' >/dev/null 2>&1; then
+  ruleset_capture_ps="$work/ruleset-explicit-false-ps.json"
+  PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_ps" \
+    pwsh -NoLogo -NoProfile -File "$kit/github-governance.ps1" -Repo owner/repo -Profile "$explicit_false_profile" -Apply >/dev/null 2>&1
+  pr_params_ps() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_ps"; }
+  check 'PowerShell: explicit requireCodeOwnerReview=false survives into the ruleset' equals "$(pr_params_ps require_code_owner_review)" 'false'
+  check 'PowerShell: explicit requireLastPushApproval=false survives into the ruleset' equals "$(pr_params_ps require_last_push_approval)" 'false'
+  check 'shell and PowerShell implementations agree on the pull_request rule parameters' \
+    equals "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_sh")" \
+           "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_ps")"
+else
+  echo 'PowerShell is unavailable; skipping the sh/PowerShell ruleset-equivalence check.' >&2
+fi
+
 ps_bootstrap=$(cat "$kit/new-governed-repo.ps1")
 ps_updater=$(cat "$kit/update-governance.ps1")
 ps_remote=$(cat "$kit/github-governance.ps1")
