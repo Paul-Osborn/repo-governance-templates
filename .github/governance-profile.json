@@ -17,6 +17,7 @@
     "dismissStaleApprovals": true,
     "requireCodeOwnerReview": false,
     "requireLastPushApproval": false,
+    "requireExtraApprovalForUnattributedChanges": false,
     "requireConversationResolution": true,
     "statusContext": "governance/exact-head-review",
     "preferredTrustedIntegrationId": 15368,

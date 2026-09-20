@@ -69,6 +69,7 @@ check 'Claude executable hooks are not core-installed' not_exists "$repo/.claude
 check 'V3 generation is stamped' equals "$(tr -d '\r\n ' < "$repo/.governance-version")" '3.0.0'
 check 'Lefthook installs the Git hook' exists "$repo/.git/hooks/pre-commit"
 check 'remote profile uses exact-head review while prose stays exempt' jq -e '.review.requiredApprovals == 0 and .review.requireCodeOwnerReview == true and .review.statusContext == "governance/exact-head-review"' "$repo/.github/governance-profile.json"
+check 'remote profile defaults extra approval for unattributed changes to true' jq -e '.review.requireExtraApprovalForUnattributedChanges == true' "$repo/.github/governance-profile.json"
 check 'review workflow runs protected-base logic without checkout' sh -c "grep -q 'pull_request_target' '$repo/.github/workflows/review-gate.yml' && ! grep -q 'actions/checkout' '$repo/.github/workflows/review-gate.yml'"
 repeat_output=$("$kit/new-governed-repo.sh" --target "$repo" --name 'Wrong path' 2>&1); repeat_status=$?
 check 'bootstrap refuses to restamp an already governed repository' test "$repeat_status" -ne 0
@@ -360,13 +361,30 @@ jq -n '{
   requiredStatusChecks: ["Governance / invariants", "governance/exact-head-review"],
   review: {
     requiredApprovals: 0, dismissStaleApprovals: false, requireCodeOwnerReview: false,
-    requireLastPushApproval: false, requireConversationResolution: true,
+    requireLastPushApproval: false, requireExtraApprovalForUnattributedChanges: false,
+    requireConversationResolution: true,
     statusContext: "governance/exact-head-review", preferredTrustedIntegrationId: 15368,
     externalReviewerAppId: null, requireIndependentReview: false
   },
   history: {requirePullRequest: true, requireLinearHistory: true, blockForcePush: true, blockDeletion: true},
   actions: {defaultWorkflowPermissions: "read", canApprovePullRequestReviews: false}
 }' > "$explicit_false_profile"
+
+explicit_true_profile="$work/profile-explicit-true.json"
+jq -n '{
+  schemaVersion: 1, profileName: "Test", defaultBranch: "main", governanceOwner: "owner",
+  rulesetName: "test-ruleset",
+  requiredStatusChecks: ["Governance / invariants", "governance/exact-head-review"],
+  review: {
+    requiredApprovals: 0, dismissStaleApprovals: false, requireCodeOwnerReview: false,
+    requireLastPushApproval: false, requireExtraApprovalForUnattributedChanges: true,
+    requireConversationResolution: true,
+    statusContext: "governance/exact-head-review", preferredTrustedIntegrationId: 15368,
+    externalReviewerAppId: null, requireIndependentReview: false
+  },
+  history: {requirePullRequest: true, requireLinearHistory: true, blockForcePush: true, blockDeletion: true},
+  actions: {defaultWorkflowPermissions: "read", canApprovePullRequestReviews: false}
+}' > "$explicit_true_profile"
 
 missing_fields_profile="$work/profile-missing-fields.json"
 jq -n '{
@@ -388,6 +406,13 @@ check 'sh: explicit requireCodeOwnerReview=false survives into the ruleset' equa
 check 'sh: explicit requireLastPushApproval=false survives into the ruleset' equals "$(pr_params_sh require_last_push_approval)" 'false'
 check 'sh: explicit dismissStaleApprovals=false survives into the ruleset' equals "$(pr_params_sh dismiss_stale_reviews_on_push)" 'false'
 check 'sh: requiredApprovals=0 reaches the ruleset' equals "$(pr_params_sh required_approving_review_count)" '0'
+check 'sh: explicit requireExtraApprovalForUnattributedChanges=false survives into the ruleset' equals "$(pr_params_sh require_extra_approval_for_unattributed_changes)" 'false'
+
+ruleset_capture_sh_true="$work/ruleset-explicit-true-sh.json"
+PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_sh_true" \
+  "$kit/github-governance.sh" --repo owner/repo --profile "$explicit_true_profile" --apply >/dev/null 2>&1
+pr_params_sh_true() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_sh_true"; }
+check 'sh: explicit requireExtraApprovalForUnattributedChanges=true survives into the ruleset' equals "$(pr_params_sh_true require_extra_approval_for_unattributed_changes)" 'true'
 
 ruleset_capture_sh_defaults="$work/ruleset-missing-fields-sh.json"
 PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_sh_defaults" \
@@ -396,6 +421,7 @@ pr_params_sh_defaults() { jq -r --arg key "$1" '.rules[] | select(.type == "pull
 check 'sh: missing requireCodeOwnerReview defaults to true (fails closed)' equals "$(pr_params_sh_defaults require_code_owner_review)" 'true'
 check 'sh: missing requireLastPushApproval defaults to true (fails closed)' equals "$(pr_params_sh_defaults require_last_push_approval)" 'true'
 check 'sh: missing dismissStaleApprovals defaults to true (fails closed)' equals "$(pr_params_sh_defaults dismiss_stale_reviews_on_push)" 'true'
+check 'sh: missing requireExtraApprovalForUnattributedChanges defaults to true (fails closed)' equals "$(pr_params_sh_defaults require_extra_approval_for_unattributed_changes)" 'true'
 
 if command -v pwsh >/dev/null 2>&1 && pwsh -NoLogo -NoProfile -Command 'exit 0' >/dev/null 2>&1; then
   ruleset_capture_ps="$work/ruleset-explicit-false-ps.json"
@@ -404,9 +430,28 @@ if command -v pwsh >/dev/null 2>&1 && pwsh -NoLogo -NoProfile -Command 'exit 0' 
   pr_params_ps() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_ps"; }
   check 'PowerShell: explicit requireCodeOwnerReview=false survives into the ruleset' equals "$(pr_params_ps require_code_owner_review)" 'false'
   check 'PowerShell: explicit requireLastPushApproval=false survives into the ruleset' equals "$(pr_params_ps require_last_push_approval)" 'false'
+  check 'PowerShell: explicit requireExtraApprovalForUnattributedChanges=false survives into the ruleset' equals "$(pr_params_ps require_extra_approval_for_unattributed_changes)" 'false'
   check 'shell and PowerShell implementations agree on the pull_request rule parameters' \
     equals "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_sh")" \
            "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_ps")"
+
+  ruleset_capture_ps_true="$work/ruleset-explicit-true-ps.json"
+  PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_ps_true" \
+    pwsh -NoLogo -NoProfile -File "$kit/github-governance.ps1" -Repo owner/repo -Profile "$explicit_true_profile" -Apply >/dev/null 2>&1
+  pr_params_ps_true() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_ps_true"; }
+  check 'PowerShell: explicit requireExtraApprovalForUnattributedChanges=true survives into the ruleset' equals "$(pr_params_ps_true require_extra_approval_for_unattributed_changes)" 'true'
+  check 'sh and PowerShell agree on requireExtraApprovalForUnattributedChanges=true' \
+    equals "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_sh_true")" \
+           "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_ps_true")"
+
+  ruleset_capture_ps_defaults="$work/ruleset-missing-fields-ps.json"
+  PATH="$fake_bin_ruleset:$PATH" GOVERNANCE_FAKE_GH_RULESET_CAPTURE="$ruleset_capture_ps_defaults" \
+    pwsh -NoLogo -NoProfile -File "$kit/github-governance.ps1" -Repo owner/repo -Profile "$missing_fields_profile" -Apply >/dev/null 2>&1
+  pr_params_ps_defaults() { jq -r --arg key "$1" '.rules[] | select(.type == "pull_request") | .parameters[$key]' "$ruleset_capture_ps_defaults"; }
+  check 'PowerShell: missing requireExtraApprovalForUnattributedChanges defaults to true (fails closed)' equals "$(pr_params_ps_defaults require_extra_approval_for_unattributed_changes)" 'true'
+  check 'sh and PowerShell agree on missing-field defaults' \
+    equals "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_sh_defaults")" \
+           "$(jq -Sc '.rules[] | select(.type == "pull_request") | .parameters' "$ruleset_capture_ps_defaults")"
 else
   echo 'PowerShell is unavailable; skipping the sh/PowerShell ruleset-equivalence check.' >&2
 fi
