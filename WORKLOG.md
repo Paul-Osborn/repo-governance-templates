@@ -2,6 +2,42 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-09-19 — Dedicated reviewer App + optional independent review (issue #10)
+
+- **Branches:** `feat/v3-reviewer-app-identity` → PR #14; `feat/v3-optional-independent-review` → PR #15.
+- **Changed:** `review-gate.yml` mints an installation token via `actions/create-github-app-token`
+  when `GOVERNANCE_REVIEWER_APP_ID` (repo variable) and `GOVERNANCE_REVIEWER_APP_PRIVATE_KEY`
+  (repo secret) are configured, scoped to `contents:read`, `pull-requests:read`, `statuses:write`,
+  and publishes `governance/exact-head-review` under that identity instead of the shared
+  `github-actions[bot]`; falls back to `github.token` when unconfigured. `github-governance.sh`/
+  `.ps1` resolve `integration_id` per required check via `review.externalReviewerAppId`. Separately,
+  added `review.requireIndependentReview` to `governance-profile.json` (default `true` in the
+  reusable template); the workflow reads it from the PR's **base SHA** copy of the profile (never
+  the PR's own copy, matching the existing `trustRootPaths` pattern) so a PR cannot flip it on
+  itself. When `false` the check still runs and posts on every PR but always succeeds, keeping the
+  choice auditable. This repository's own profile sets it `false`: as a solo maintainer directing
+  an AI agent, no second human reviewer exists, and `AGENTS.md` rule 7 already reserves final
+  ratification of governance/control-file changes to the human owner. Fixed a latent bug along the
+  way: `jq`'s `//` treats `false` the same as `null`, so a naive `x // true` silently ignored an
+  explicit `false`.
+- **Owner-only setup performed:** registered GitHub App `repo-governance-reviewer-v3`, generated
+  and stored its private key, installed it, and set the resulting repo variable/secret — all human
+  identity actions no agent performed. Discovered and fixed a real setup bug: the App was first
+  registered under the personal `pauldavid1974` account with "Only on this account," which cannot
+  be installed on the `Paul-Osborn` org that actually owns this repo (confirmed via a `Not Found`
+  error from `create-github-app-token`'s installation lookup); transferred App ownership to
+  `Paul-Osborn` and reinstalled scoped to just this repository.
+- **Verified by:** `sh tests/acceptance.sh` (81/81 relevant; one pre-existing, unrelated local
+  environment failure — `lefthook` not resolved by `mise` in this shell), `validate-governance.sh`,
+  `sh -n` on all shell entry points, and live confirmation on PR #15's head commit: the
+  `governance/exact-head-review` status posted by `repo-governance-reviewer-v3[bot]`, not
+  `github-actions[bot]` (run
+  [35476784383](https://github.com/Paul-Osborn/repo-governance-templates/actions/runs/35476784383)).
+- **Next:** the strict GitHub ruleset (`github-governance.sh --apply`) is still unapplied; branch
+  protection today is enforced only by convention (owner ratification of governance-file changes),
+  not by GitHub itself. Applying it is the next real milestone.
+- **Open decisions:** none; issue #10 closed with live evidence.
+
 ## 2026-09-19 — Native Windows verification (issue #9)
 
 - **Branch:** `test/v3-native-windows-verification`
