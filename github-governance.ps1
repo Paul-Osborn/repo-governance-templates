@@ -33,6 +33,10 @@ $reviewContext = $desired.review.statusContext
 $defaultIntegrationId = $desired.review.preferredTrustedIntegrationId
 $reviewerAppId = $desired.review.externalReviewerAppId
 $requireReview = if ($null -eq $desired.review.requireIndependentReview) { $true } else { $desired.review.requireIndependentReview }
+$requiredApprovingReviewCount = if ($null -eq $desired.review.requiredApprovals) { 0 } else { $desired.review.requiredApprovals }
+$dismissStaleReviews = if ($null -eq $desired.review.dismissStaleApprovals) { $true } else { $desired.review.dismissStaleApprovals }
+$requireCodeOwnerReview = if ($null -eq $desired.review.requireCodeOwnerReview) { $true } else { $desired.review.requireCodeOwnerReview }
+$requireLastPushApproval = if ($null -eq $desired.review.requireLastPushApproval) { $true } else { $desired.review.requireLastPushApproval }
 foreach ($check in $desired.requiredStatusChecks) {
     if ($check -eq $reviewContext) {
         if (-not $requireReview) {
@@ -46,7 +50,8 @@ foreach ($check in $desired.requiredStatusChecks) {
         Write-Host "    - $check (integration_id $defaultIntegrationId)"
     }
 }
-Write-Host '  pull requests, code-owner/last-push review, linear history, no force push/deletion'
+Write-Host "  pull requests: required; approving reviews required: $requiredApprovingReviewCount; stale approvals dismissed: $dismissStaleReviews; code owner review: $requireCodeOwnerReview; last-push approval: $requireLastPushApproval"
+Write-Host '  history: force pushes and deletion blocked; linear history required'
 Write-Host '  workflow token default: read; Actions cannot approve PRs'
 
 $existing = @($rulesets | Where-Object name -eq $desired.rulesetName | Select-Object -First 1)
@@ -78,6 +83,11 @@ try {
             $integrationId = if ($_ -eq $reviewContext -and $reviewerAppId) { $reviewerAppId } else { $defaultIntegrationId }
             [pscustomobject]@{ context = $_; integration_id = $integrationId }
         })
+        $pullRequestRule = $payload.rules | Where-Object type -eq 'pull_request'
+        $pullRequestRule.parameters.required_approving_review_count = $requiredApprovingReviewCount
+        $pullRequestRule.parameters.dismiss_stale_reviews_on_push = $dismissStaleReviews
+        $pullRequestRule.parameters.require_code_owner_review = $requireCodeOwnerReview
+        $pullRequestRule.parameters.require_last_push_approval = $requireLastPushApproval
         [IO.File]::WriteAllText($temp, ($payload | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         if ($existing) { & gh api --method PUT "repos/$Repo/rulesets/$($existing.id)" --input $temp | Out-Null }
         else { & gh api --method POST "repos/$Repo/rulesets" --input $temp | Out-Null }
@@ -88,9 +98,9 @@ try {
             required_status_checks = @{ strict = $true; contexts = @($desired.requiredStatusChecks) }
             enforce_admins = $true
             required_pull_request_reviews = @{
-                dismissal_restrictions = @{}; dismiss_stale_reviews = $true
-                require_code_owner_reviews = $true; required_approving_review_count = 0
-                require_last_push_approval = $true; bypass_pull_request_allowances = @{}
+                dismissal_restrictions = @{}; dismiss_stale_reviews = $dismissStaleReviews
+                require_code_owner_reviews = $requireCodeOwnerReview; required_approving_review_count = $requiredApprovingReviewCount
+                require_last_push_approval = $requireLastPushApproval; bypass_pull_request_allowances = @{}
             }
             restrictions = $null; required_linear_history = $true
             allow_force_pushes = $false; allow_deletions = $false

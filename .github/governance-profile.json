@@ -8,14 +8,15 @@
     "Governance / invariants",
     "Governance / secrets",
     "Governance / actions-security",
+    "Governance / windows-verification",
     "Project / checks",
     "governance/exact-head-review"
   ],
   "review": {
     "requiredApprovals": 0,
     "dismissStaleApprovals": true,
-    "requireCodeOwnerReview": true,
-    "requireLastPushApproval": true,
+    "requireCodeOwnerReview": false,
+    "requireLastPushApproval": false,
     "requireConversationResolution": true,
     "statusContext": "governance/exact-head-review",
     "preferredTrustedIntegrationId": 15368,

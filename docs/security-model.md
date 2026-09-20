@@ -86,6 +86,20 @@ with the check. This is a documented reduction of the review boundary, not a byp
 `governance-profile.json` change that sets the flag is itself a governance/control-file change and
 so is a proposal only an owner can ratify, per `AGENTS.md`.
 
+`review.requireIndependentReview` only governs that one custom status check. It does not, by
+itself, touch GitHub's own native pull-request review rule inside the applied ruleset (or its
+classic-branch-protection fallback) — `require_code_owner_review` and `require_last_push_approval`
+are a separate GitHub-side gate that `github-governance.sh` / `.ps1` build from
+`review.requireCodeOwnerReview`, `review.requireLastPushApproval`, `review.requiredApprovals`, and
+`review.dismissStaleApprovals` in the same profile. Earlier versions of this tooling left those four
+hardcoded to strict values in the static ruleset template regardless of the profile, which meant a
+solo repository could set `requireIndependentReview: false` and still find every governance PR
+unmergeable through GitHub's own UI — CODEOWNERS naming the same person as both the sole reviewer
+and the sole author, with no self-approval possible. The tooling now derives all four from the
+profile (using an explicit null-check, not `//`, so an explicit `false` or `0` is preserved rather
+than silently replaced by the default), so a solo maintainer's opt-out is consistent everywhere the
+policy is enforced, not just in the custom status check.
+
 ## Fail direction
 
 Merge-critical capability, review, path classification, and governance consistency checks fail
