@@ -125,8 +125,11 @@
       "dest": ".github/governance-profile.json",
       "note": "Machine-readable desired GitHub settings; customize owner before apply.",
       "mode": "add-only",
-      "sha256": "aea2b638cc933dd2598624017bab02e1f7d96ab5e64ccb8ed10943a13038e984",
-      "knownHashes": ["d0380f960b1db9f824b0ba2cf92556c0fb0ffdc1769b4a56718687cc7c28375b"]
+      "sha256": "6764acc37597f403a345a9508a77f72d4976c976d3df10194a8c536a207d68a4",
+      "knownHashes": [
+        "d0380f960b1db9f824b0ba2cf92556c0fb0ffdc1769b4a56718687cc7c28375b",
+        "aea2b638cc933dd2598624017bab02e1f7d96ab5e64ccb8ed10943a13038e984"
+      ]
     }
   ]
 }

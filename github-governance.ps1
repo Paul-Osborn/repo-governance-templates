@@ -37,6 +37,7 @@ $requiredApprovingReviewCount = if ($null -eq $desired.review.requiredApprovals)
 $dismissStaleReviews = if ($null -eq $desired.review.dismissStaleApprovals) { $true } else { $desired.review.dismissStaleApprovals }
 $requireCodeOwnerReview = if ($null -eq $desired.review.requireCodeOwnerReview) { $true } else { $desired.review.requireCodeOwnerReview }
 $requireLastPushApproval = if ($null -eq $desired.review.requireLastPushApproval) { $true } else { $desired.review.requireLastPushApproval }
+$requireExtraApprovalUnattributed = if ($null -eq $desired.review.requireExtraApprovalForUnattributedChanges) { $true } else { $desired.review.requireExtraApprovalForUnattributedChanges }
 foreach ($check in $desired.requiredStatusChecks) {
     if ($check -eq $reviewContext) {
         if (-not $requireReview) {
@@ -50,7 +51,7 @@ foreach ($check in $desired.requiredStatusChecks) {
         Write-Host "    - $check (integration_id $defaultIntegrationId)"
     }
 }
-Write-Host "  pull requests: required; approving reviews required: $requiredApprovingReviewCount; stale approvals dismissed: $dismissStaleReviews; code owner review: $requireCodeOwnerReview; last-push approval: $requireLastPushApproval"
+Write-Host "  pull requests: required; approving reviews required: $requiredApprovingReviewCount; stale approvals dismissed: $dismissStaleReviews; code owner review: $requireCodeOwnerReview; last-push approval: $requireLastPushApproval; extra approval for unattributed changes: $requireExtraApprovalUnattributed"
 Write-Host '  history: force pushes and deletion blocked; linear history required'
 Write-Host '  workflow token default: read; Actions cannot approve PRs'
 
@@ -59,6 +60,7 @@ if ($rulesetsSupported) {
     Write-Host "  action: $(if ($existing) { "update ruleset $($existing.id)" } else { "create ruleset '$($desired.rulesetName)'" })"
 } else {
     Write-Warning 'Rulesets unavailable; apply will attempt classic branch protection. Plan/visibility may require a manual fallback.'
+    Write-Host '  limitation: classic branch protection has no equivalent of require_extra_approval_for_unattributed_changes; this fallback cannot enforce it.'
 }
 
 if (-not $Apply) {
@@ -88,6 +90,7 @@ try {
         $pullRequestRule.parameters.dismiss_stale_reviews_on_push = $dismissStaleReviews
         $pullRequestRule.parameters.require_code_owner_review = $requireCodeOwnerReview
         $pullRequestRule.parameters.require_last_push_approval = $requireLastPushApproval
+        $pullRequestRule.parameters.require_extra_approval_for_unattributed_changes = $requireExtraApprovalUnattributed
         [IO.File]::WriteAllText($temp, ($payload | ConvertTo-Json -Depth 12), (New-Object Text.UTF8Encoding($false)))
         if ($existing) { & gh api --method PUT "repos/$Repo/rulesets/$($existing.id)" --input $temp | Out-Null }
         else { & gh api --method POST "repos/$Repo/rulesets" --input $temp | Out-Null }

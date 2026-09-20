@@ -37,6 +37,7 @@ required_approving_review_count=$(jq -r '.review.requiredApprovals // 0' "$profi
 dismiss_stale_reviews=$(jq -r '.review.dismissStaleApprovals as $v | if $v == null then true else $v end' "$profile")
 require_code_owner_review=$(jq -r '.review.requireCodeOwnerReview as $v | if $v == null then true else $v end' "$profile")
 require_last_push_approval=$(jq -r '.review.requireLastPushApproval as $v | if $v == null then true else $v end' "$profile")
+require_extra_approval_unattributed=$(jq -r '.review.requireExtraApprovalForUnattributedChanges as $v | if $v == null then true else $v end' "$profile")
 
 rulesets_tmp=$(mktemp)
 err_tmp=$(mktemp)
@@ -71,7 +72,10 @@ while IFS= read -r check; do
 done <<CHECKS
 $(jq -r '.requiredStatusChecks[]' "$profile")
 CHECKS
-echo "  pull requests: required; approving reviews required: $required_approving_review_count; stale approvals dismissed: $dismiss_stale_reviews; code owner review: $require_code_owner_review; last-push approval: $require_last_push_approval"
+echo "  pull requests: required; approving reviews required: $required_approving_review_count; stale approvals dismissed: $dismiss_stale_reviews; code owner review: $require_code_owner_review; last-push approval: $require_last_push_approval; extra approval for unattributed changes: $require_extra_approval_unattributed"
+if [ "$capability" != rulesets ]; then
+  echo "  limitation: classic branch protection has no equivalent of require_extra_approval_for_unattributed_changes; the profile's value ($require_extra_approval_unattributed) cannot be enforced under this fallback."
+fi
 echo "  history: force pushes and deletion blocked; linear history required"
 echo "  workflow token default: read; Actions cannot approve PRs"
 
@@ -108,13 +112,15 @@ if [ "$capability" = rulesets ]; then
      --argjson approvals "$required_approving_review_count" \
      --argjson dismissStale "$dismiss_stale_reviews" \
      --argjson codeOwner "$require_code_owner_review" \
-     --argjson lastPush "$require_last_push_approval" '
+     --argjson lastPush "$require_last_push_approval" \
+     --argjson extraApprovalUnattributed "$require_extra_approval_unattributed" '
     .name = $name |
     (.rules[] | select(.type == "required_status_checks") | .parameters.required_status_checks) = $checks |
     (.rules[] | select(.type == "pull_request") | .parameters.required_approving_review_count) = $approvals |
     (.rules[] | select(.type == "pull_request") | .parameters.dismiss_stale_reviews_on_push) = $dismissStale |
     (.rules[] | select(.type == "pull_request") | .parameters.require_code_owner_review) = $codeOwner |
-    (.rules[] | select(.type == "pull_request") | .parameters.require_last_push_approval) = $lastPush
+    (.rules[] | select(.type == "pull_request") | .parameters.require_last_push_approval) = $lastPush |
+    (.rules[] | select(.type == "pull_request") | .parameters.require_extra_approval_for_unattributed_changes) = $extraApprovalUnattributed
   ' "$script_dir/github/rulesets/default-branch.json" > "$payload_tmp"
   if [ -n "${existing:-}" ]; then
     gh api --method PUT "repos/$repo/rulesets/$existing" --input "$payload_tmp" >/dev/null

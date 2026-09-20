@@ -100,6 +100,23 @@ profile (using an explicit null-check, not `//`, so an explicit `false` or `0` i
 than silently replaced by the default), so a solo maintainer's opt-out is consistent everywhere the
 policy is enforced, not just in the custom status check.
 
+GitHub's rulesets `pull_request` rule also carries a fifth native parameter,
+`require_extra_approval_for_unattributed_changes`: it demands one additional approving review on a
+pull request containing any commit GitHub cannot attribute to a verified, linked GitHub account
+(for example, a commit whose author/committer email, or a `Co-authored-by` trailer's email, does not
+resolve to one). GitHub defaults this to `true` on every newly created ruleset regardless of what
+the requesting payload contains, and it only becomes visible once the ruleset object actually
+exists — this kit's static ruleset template did not set it explicitly, so it surfaced as a residual
+gap only after this repository's own ruleset went live (see `WORKLOG.md`, 2026-09-19). It is now an
+explicit `review.requireExtraApprovalForUnattributedChanges` profile field, derived the same
+null-checked way as the other four settings, and applied only on the rulesets path — classic branch
+protection has no equivalent parameter, so `github-governance.sh` / `.ps1` say so in their plan
+output rather than silently dropping it. The reusable template keeps GitHub's own fail-closed
+default (`true`); this repository sets it to `false` for the same reason it already sets
+`requireCodeOwnerReview` and `requireLastPushApproval` to `false` — a solo maintainer whose own
+commits carry an AI co-author trailer would otherwise be unable to satisfy the extra-approval
+requirement and every PR would become unmergeable.
+
 ## Fail direction
 
 Merge-critical capability, review, path classification, and governance consistency checks fail

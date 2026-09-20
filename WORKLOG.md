@@ -2,6 +2,36 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-09-19 — Close the unattributed-changes review gap found live
+
+- **Branch:** `fix/v3-unattributed-changes-approval`.
+- **Changed:** Follow-up to the residual gap recorded below (2026-09-19, ruleset activation).
+  Confirmed via a live `GET /repos/.../rulesets/{id}` read that GitHub's `pull_request` rule
+  carries a fifth native parameter, `require_extra_approval_for_unattributed_changes` (boolean;
+  requires one extra approving review on a PR containing a commit GitHub cannot attribute to a
+  verified account), which GitHub defaults to `true` on every ruleset it creates regardless of the
+  request payload. Added an explicit `review.requireExtraApprovalForUnattributedChanges` field to
+  `governance-profile.json`, following the same naming and null-check discipline as
+  `requireCodeOwnerReview`/`requireLastPushApproval`. Wired it through `github-governance.sh` and
+  `.ps1` (rulesets path only — classic branch protection has no equivalent parameter, and both
+  scripts now say so in their plan output rather than dropping it silently). Gave the reusable
+  ruleset template (`github/rulesets/default-branch.json`) an explicit `true` default instead of
+  relying on GitHub's implicit one. Set this repository's own profile to `false`: with a solo
+  maintainer and commits that carry an AI co-author trailer, leaving GitHub's default `true` in
+  place would reproduce the same self-approval deadlock already fixed for the other two native
+  review settings. Bumped `governance-manifest.json`'s hash for `github/governance-profile.json`
+  and preserved the prior hash in `knownHashes`.
+- **Verified by:** `sh tests/acceptance.sh` (100 pass, 1 pre-existing unrelated local `lefthook`
+  environment failure present on `main` before this change too) and
+  `pwsh -NoLogo -NoProfile -File tests/acceptance.ps1` (22/22), both run locally via an isolated
+  `mise exec powershell@7.6.6` invocation that did not touch global mise config. New coverage:
+  explicit `true`, explicit `false`, and missing-field-defaults-to-`true` cases for both `sh` and
+  PowerShell, plus byte-identical ruleset-payload equivalence checks between the two
+  implementations for all three cases.
+- **Next:** after merge, sync `main` and re-run `./github-governance.sh --apply` against this
+  repository so the live ruleset converges on the new explicit `false`, then independently verify
+  via a fresh API read (not command output) that the live value actually changed.
+
 ## 2026-09-19 — Strict GitHub ruleset activated on this repository
 
 - **Branch:** `docs/v3-ruleset-activated`.
