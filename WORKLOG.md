@@ -2,6 +2,39 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-09-19 — Strict GitHub ruleset activated on this repository
+
+- **Branch:** `docs/v3-ruleset-activated`.
+- **Changed:** Ran `./github-governance.sh --repo Paul-Osborn/repo-governance-templates --profile
+  .github/governance-profile.json --apply` against `main` after PR #17 merged and a fresh preflight
+  found no material blocker. GitHub-side branch protection for this repository moved from
+  plan-only to actually enforced for the first time. This WORKLOG update is itself the first change
+  to go through the newly active ruleset's required pull-request flow — direct pushes to `main` are
+  no longer possible for anyone, including the owner, without first editing the ruleset.
+- **Verified independently** (fresh API reads, not command output): ruleset `repo-governance-v3`
+  (id 23713259) is `active`, targets `~DEFAULT_BRANCH` (resolves to `main`), and its rules exactly
+  match intent — `deletion`, `non_fast_forward`, `required_linear_history` present;
+  `pull_request` rule has `required_approving_review_count: 0`, `require_code_owner_review: false`,
+  `require_last_push_approval: false` (no self-approval trap for this solo-maintainer repo);
+  `required_status_checks` lists all six intended contexts with correct `integration_id`s,
+  including `governance/exact-head-review` bound to the dedicated reviewer App (5005110), not the
+  shared Actions identity. `GET /repos/.../rules/branches/main` (GitHub's own live rule-resolution
+  endpoint) confirms the same rule set is actually bound to `main`, not merely stored. Actions
+  permissions (`default_workflow_permissions: read`, `can_approve_pull_request_reviews: false`)
+  were already at the desired state — the apply's Actions-permissions call was a no-op, no
+  unrelated settings changed. Deleted the fully-merged `fix/v3-ruleset-review-wiring` branch.
+- **Known residual gap found live, not previously visible:** GitHub defaulted the new ruleset's
+  `pull_request` rule to `require_extra_approval_for_unattributed_changes: true` — a field this
+  kit's template never set and that only appears once GitHub actually creates the object. If a
+  future commit's author/committer identity isn't a verified, linked GitHub account, this could
+  reproduce the same solo-maintainer self-approval trap that `require_code_owner_review` and
+  `require_last_push_approval` already had to be fixed for. Not yet remediated; tracked as follow-up
+  work rather than fixed silently outside the reviewed change that activated the ruleset.
+- **Next:** decide whether to wire `require_extra_approval_for_unattributed_changes` to the profile
+  the same way the other four review settings were (a small, same-shaped follow-up to PR #17), or
+  set it directly via the GitHub UI/API now that the ruleset exists.
+- **Open decisions:** none blocking; see the residual gap above.
+
 ## 2026-09-19 — Wire native GitHub review settings to governance-profile.json
 
 - **Branch:** `fix/v3-ruleset-review-wiring`.
