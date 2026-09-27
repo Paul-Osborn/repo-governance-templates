@@ -130,6 +130,18 @@
       "description": "The LED strips around the house.",
       "note": "Caddy strips the public /simpled prefix; the page uses relative links. The boards reach simpled.service directly on the home LAN (9201/tcp, 9202/udp) because they cannot use Tailscale - those two ports are firewalled to 192.168.1.0/24 and must not be moved to loopback.",
       "icon": "💡"
+    },
+    {
+      "path": "/sentry",
+      "kind": "reverse_proxy",
+      "target": "192.168.1.99:8787",
+      "service": "moto-g-pure-sentry",
+      "prefix_preserved": false,
+      "backend_path": "/",
+      "title": "Sentry AI",
+      "description": "Remote AI camera, intercom, and motion sentry stream.",
+      "note": "Caddy strips /sentry prefix for HTTP and reverse-proxies /sentry/ws to WebSocket port 8788.",
+      "icon": "📹"
     }
   ],
   "forgejo_root_url_after_migration": "https://gitserver.tail97bf76.ts.net/git/"

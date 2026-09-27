@@ -84,6 +84,15 @@
 		uri strip_prefix /simpled
 		reverse_proxy 127.0.0.1:9200
 	}
+	@sentry path /sentry /sentry/*
+	handle @sentry {
+		@sentrynoslash path /sentry
+		redir @sentrynoslash /sentry/ 308
+		@sentryws header Upgrade *websocket*
+		reverse_proxy @sentryws 192.168.1.99:8788
+		uri strip_prefix /sentry
+		reverse_proxy 192.168.1.99:8787
+	}
 
 	# The dashboard owns the bare address now (old static portal is
 	# preserved at /var/www/portal.bak-*). Private behind Tailscale Serve;

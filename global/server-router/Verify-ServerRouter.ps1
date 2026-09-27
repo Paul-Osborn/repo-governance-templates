@@ -19,7 +19,8 @@ $routes = @(
     @{ Path = '/astrocade-specialist/'; ExpectedStatus = '200,302,303,401'; Description = 'Astrocade Specialist' },
     @{ Path = '/cozytavern/'; ExpectedStatus = '200'; Description = 'Cozy Tavern room' },
     @{ Path = '/happy-hour/'; ExpectedStatus = '200'; Description = 'Happy Hour game' },
-    @{ Path = '/simpled/'; ExpectedStatus = '200'; Description = 'simpLED strip control' }
+    @{ Path = '/simpled/'; ExpectedStatus = '200'; Description = 'simpLED strip control' },
+    @{ Path = '/sentry/'; ExpectedStatus = '200'; Description = 'Sentry AI camera stream' }
 )
 
 $allPassed = $true
