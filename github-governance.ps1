@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) { throw 'gh is required.' }
 if (-not (Test-Path $Profile)) { throw "Profile not found: $Profile" }
 
-$desired = Get-Content $Profile -Raw | ConvertFrom-Json
+$desired = Get-Content $Profile -Raw -Encoding UTF8 | ConvertFrom-Json
 $repoInfo = (& gh api "repos/$Repo" | Out-String) | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw "Cannot inspect $Repo. Check gh auth and repository access." }
 
@@ -78,7 +78,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Failed to set least-privilege Actions defaults
 $temp = [System.IO.Path]::GetTempFileName()
 try {
     if ($rulesetsSupported) {
-        $payload = Get-Content (Join-Path $PSScriptRoot 'github/rulesets/default-branch.json') -Raw | ConvertFrom-Json
+        $payload = Get-Content (Join-Path $PSScriptRoot 'github/rulesets/default-branch.json') -Raw -Encoding UTF8 | ConvertFrom-Json
         $payload.name = $desired.rulesetName
         $statusRule = $payload.rules | Where-Object type -eq 'required_status_checks'
         $statusRule.parameters.required_status_checks = @($desired.requiredStatusChecks | ForEach-Object {

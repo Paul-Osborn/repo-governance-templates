@@ -375,7 +375,7 @@ If this branch really were prose-only, nothing here would have triggered -- so i
     }
 
     $receipt = $null
-    try { $receipt = Get-Content $receiptPath -Raw | ConvertFrom-Json }
+    try { $receipt = Get-Content $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json }
     catch {
         Deny "Refused: .claude/review/receipt.json is not valid JSON. Re-run the reviewer and rewrite it."
     }

@@ -64,7 +64,7 @@ function Get-NormalizedHash([string]$path) {
 # ---------------------------------------------------------------------------
 if ($RebuildManifest) {
     if (-not (Test-Path $manifestPath)) { throw "No governance-manifest.json to rebuild. Create it first." }
-    $m = Get-Content $manifestPath -Raw | ConvertFrom-Json
+    $m = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($Version) { $m.governanceVersion = $Version }
     $m.generated = (Get-Date -Format 'yyyy-MM-dd')
 
@@ -82,7 +82,7 @@ if ($RebuildManifest) {
         $f.sha256 = $new
     }
 
-    $m | ConvertTo-Json -Depth 6 | Set-Content $manifestPath -Encoding UTF8
+    [IO.File]::WriteAllText($manifestPath, (($m | ConvertTo-Json -Depth 6) + "`n"), (New-Object System.Text.UTF8Encoding($false)))
     Write-Host "Manifest rebuilt at version $($m.governanceVersion)." -ForegroundColor Green
     exit 0
 }
@@ -91,7 +91,7 @@ if ($RebuildManifest) {
 # Resolve and sanity-check the target.
 # ---------------------------------------------------------------------------
 if (-not (Test-Path $manifestPath)) { throw "governance-manifest.json not found next to this script." }
-$manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+$manifest = Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
 
 $dest = if ([System.IO.Path]::IsPathRooted($Target)) { $Target } else { Join-Path (Get-Location) $Target }
 $dest = [System.IO.Path]::GetFullPath($dest)
@@ -110,7 +110,7 @@ $dest does not look like a governed project (no AGENTS.md, lefthook.yml, .claude
 
 $installedVersion = $null
 $versionFile = Join-Path $dest '.governance-version'
-if (Test-Path $versionFile) { $installedVersion = (Get-Content $versionFile -Raw).Trim() }
+if (Test-Path $versionFile) { $installedVersion = (Get-Content $versionFile -Raw -Encoding UTF8).Trim() }
 
 Write-Host ""
 Write-Host "Target:    $dest" -ForegroundColor Cyan
@@ -186,7 +186,7 @@ if ($todo -eq 0) {
     }
     # Still stamp the version if the files are all current but the marker is missing/old.
     if (-not $DryRun -and $conflicts.Count -eq 0 -and $installedVersion -ne $manifest.governanceVersion) {
-        Set-Content $versionFile $manifest.governanceVersion -Encoding UTF8
+        [IO.File]::WriteAllText($versionFile, "$($manifest.governanceVersion)`n", (New-Object System.Text.UTF8Encoding($false)))
         Write-Host "Recorded governance version $($manifest.governanceVersion) in .governance-version." -ForegroundColor Green
     }
     exit 0
@@ -242,7 +242,7 @@ try {
 
 # Only claim the new generation when every managed file actually is on it.
 if ($conflicts.Count -eq 0) {
-    Set-Content $versionFile $manifest.governanceVersion -Encoding UTF8
+    [IO.File]::WriteAllText($versionFile, "$($manifest.governanceVersion)`n", (New-Object System.Text.UTF8Encoding($false)))
     Write-Host ""
     Write-Host "Updated to governance version $($manifest.governanceVersion)." -ForegroundColor Green
 } else {
