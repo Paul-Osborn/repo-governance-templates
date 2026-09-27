@@ -50,7 +50,9 @@ $parts = @()
 foreach ($s in $sources) {
     $path = Join-Path $kit $s
     if (-not (Test-Path $path)) { throw "Missing source: $s" }
-    $parts += (Get-Content $path -Raw).TrimEnd()
+    # -Encoding UTF8: Windows PowerShell 5.1 otherwise decodes BOM-less UTF-8 as ANSI and
+    # every run turned each em dash into more mojibake.
+    $parts += (Get-Content $path -Raw -Encoding UTF8).TrimEnd()
 }
 $managed = ($BEGIN, '', ($parts -join "`n`n---`n`n"), '', $END) -join "`n"
 # Normalise to LF. The source files may be CRLF, and comparing a CRLF block against an
@@ -73,7 +75,8 @@ foreach ($name in $targets.Keys) {
     $path = $targets[$name]
     $exists = Test-Path $path
 
-    $existing = if ($exists) { Get-Content $path -Raw } else { '' }
+    $existing = if ($exists) { Get-Content $path -Raw -Encoding UTF8 } else { '' }
+    if ($null -eq $existing) { $existing = '' }
     $hasMarkers = $existing.Contains($BEGIN) -and $existing.Contains($END)
 
     if ($hasMarkers) {
@@ -114,7 +117,7 @@ foreach ($name in $targets.Keys) {
         Copy-Item $path $bak -Force
         Write-Host "          backup: $bak" -ForegroundColor DarkGray
     }
-    Set-Content $path $updated -Encoding UTF8 -NoNewline
+    [IO.File]::WriteAllText($path, $updated, (New-Object System.Text.UTF8Encoding($false)))
 }
 
 Write-Host ""
