@@ -94,6 +94,15 @@
 		reverse_proxy 192.168.1.99:8787
 	}
 
+	@andy path /andy /andy/*
+	handle @andy {
+		# Live view of the Andy 3.0 bot; the app is built for the /andy prefix, so the
+		# path is kept. It exists only while Andy is playing (502 between runs).
+		@andynoslash path /andy
+		redir @andynoslash /andy/ 308
+		reverse_proxy 127.0.0.1:3190
+	}
+
 	# The dashboard owns the bare address now (old static portal is
 	# preserved at /var/www/portal.bak-*). Private behind Tailscale Serve;
 	# no other app is mounted at /.

@@ -106,7 +106,7 @@
       "title": "Happy Hour",
       "description": "Serve colorful drinks aboard a traveling space bar.",
       "icon": "🍹"
-    },
+    },
     {
       "path": "/voicehub",
       "kind": "reverse_proxy",
@@ -142,6 +142,17 @@
       "description": "Remote AI camera, intercom, and motion sentry stream.",
       "note": "Caddy strips /sentry prefix for HTTP and reverse-proxies /sentry/ws to WebSocket port 8788.",
       "icon": "📹"
+    },
+    {
+      "path": "/andy",
+      "kind": "reverse_proxy",
+      "target": "127.0.0.1:3190",
+      "service": "andy (bot process, only while Andy is playing)",
+      "prefix_preserved": true,
+      "title": "Andy 3.0",
+      "description": "Watch Andy play Minecraft by himself, live.",
+      "note": "The live view runs inside the bot process on 127.0.0.1:3190 and exists only during a run; between runs this route returns 502. Bare /andy redirects to /andy/.",
+      "icon": "⛏️"
     }
   ],
   "forgejo_root_url_after_migration": "https://gitserver.tail97bf76.ts.net/git/"
