@@ -3,7 +3,9 @@
 set -eu
 # jq -b: Windows jq.exe ends lines with CRLF otherwise, so read values carry a hidden CR
 # and comparisons fail. -b is accepted, and a no-op, on Linux/macOS jq.
-jq() { command jq -b "$@"; }
+# Only wrap a real jq: an unconditional function would make the later `command -v jq` check
+# find the function and pass even when jq is missing.
+if command -v jq >/dev/null 2>&1; then jq() { command jq -b "$@"; }; fi
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo=
