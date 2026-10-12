@@ -1,6 +1,9 @@
 #!/bin/sh
 # CI consistency checks for an installed governed repository and for this template kit.
 set -eu
+# jq -b: Windows jq.exe ends lines with CRLF otherwise, so read values carry a hidden CR
+# and comparisons fail. -b is accepted, and a no-op, on Linux/macOS jq.
+jq() { command jq -b "$@"; }
 
 root=$(git rev-parse --show-toplevel)
 cd "$root"

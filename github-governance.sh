@@ -1,6 +1,9 @@
 #!/bin/sh
 # Inspect or apply the desired GitHub governance profile. Plan-only is the default.
 set -eu
+# jq -b: Windows jq.exe ends lines with CRLF otherwise, so read values carry a hidden CR
+# and comparisons fail. -b is accepted, and a no-op, on Linux/macOS jq.
+jq() { command jq -b "$@"; }
 
 script_dir=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 repo=

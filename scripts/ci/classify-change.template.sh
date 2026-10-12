@@ -2,6 +2,9 @@
 # Deterministically classify a branch diff. Governance is always substantive; prose is exempt
 # by file type, never by directory name.
 set -eu
+# jq -b: Windows jq.exe ends lines with CRLF otherwise, so read values carry a hidden CR
+# and comparisons fail. -b is accepted, and a no-op, on Linux/macOS jq.
+jq() { command jq -b "$@"; }
 
 base=${1:-}
 head=${2:-HEAD}
