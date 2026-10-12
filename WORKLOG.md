@@ -2,6 +2,23 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-10-12 — Windows: no BOM in written files, no CR from jq (#22)
+
+- **Branch:** `fix/windows-bom-and-crlf`.
+- **Changed:** PowerShell 5.1 `Set-Content -Encoding UTF8` wrote a byte-order mark into
+  `.governance-version` (and the manifest), which the CI version check rejected; placeholder
+  filling read BOM-less UTF-8 as ANSI and garbled em dashes. Now read as UTF-8, write UTF-8
+  without a BOM. Windows `jq.exe` ends lines with CRLF, so sh scripts read values with a hidden
+  CR (false CODEOWNERS drift; trust-root matching could fail). Every jq-using script wraps a real
+  jq as `jq -b`, defined only when jq exists so the "jq is required" check still fails closed
+  (caught by automated review). Manifest hashes updated; previous hashes kept as known versions.
+- **Verified by:** `validate-governance.sh` passes on Windows (failed before) and exits 2 with jq
+  hidden; a fresh PS 5.1 bootstrap writes a BOM-free version file with em dashes intact; Windows
+  acceptance PASS 8 / FAIL 0 (its exit code 1 from gitleaks stderr under PS 5.1 predates this);
+  all CI checks green, including Windows verification.
+- **Next:** none. Known quirk left as is: `tests/acceptance.ps1` exits 1 on PS 5.1 despite all
+  passes, because gitleaks writes to stderr.
+
 ## 2026-09-19 — Close the unattributed-changes review gap found live
 
 - **Branch:** `fix/v3-unattributed-changes-approval`.
