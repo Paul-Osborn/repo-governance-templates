@@ -98,8 +98,9 @@ foreach ($entry in $map.GetEnumerator()) {
 # human can both answer "what rules is this repo on?" without inferring it from the files.
 $manifestPath = Join-Path $src 'governance-manifest.json'
 if (Test-Path $manifestPath) {
-    $gv = (Get-Content $manifestPath -Raw | ConvertFrom-Json).governanceVersion
-    Set-Content (Join-Path $dest '.governance-version') $gv -Encoding UTF8
+    $gv = (Get-Content $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json).governanceVersion
+    # UTF-8 without a BOM (Set-Content -Encoding UTF8 adds one on PowerShell 5.1; the CI version check reads it).
+    [IO.File]::WriteAllText((Join-Path $dest '.governance-version'), "$gv`n", (New-Object System.Text.UTF8Encoding($false)))
     Write-Host "  + .governance-version ($gv)" -ForegroundColor Green
 }
 
@@ -114,9 +115,9 @@ if ($WithOptional) {
 # Fill the project-name placeholder if one was given (other <PLACEHOLDER>s are left for the agent).
 if ($Name) {
     Get-ChildItem $dest -Recurse -File -Include *.md, *.toml | ForEach-Object {
-        $c = Get-Content $_.FullName -Raw
+        $c = Get-Content $_.FullName -Raw -Encoding UTF8   # 5.1 reads BOM-less UTF-8 as ANSI otherwise
         if ($c -contains '<PROJECT_NAME>' -or $c.Contains('<PROJECT_NAME>')) {
-            $c.Replace('<PROJECT_NAME>', $Name) | Set-Content $_.FullName -NoNewline
+            [IO.File]::WriteAllText($_.FullName, $c.Replace('<PROJECT_NAME>', $Name), (New-Object System.Text.UTF8Encoding($false)))
             Write-Host "  set <PROJECT_NAME> -> '$Name' in $($_.Name)" -ForegroundColor Green
         }
     }
@@ -127,8 +128,8 @@ if ($Name) {
 foreach ($rel in @('.github/CODEOWNERS', '.github/governance-profile.json')) {
     $path = Join-Path $dest $rel
     if (Test-Path $path) {
-        $content = Get-Content $path -Raw
-        $content.Replace('<owner>', $Owner) | Set-Content $path -NoNewline
+        $content = Get-Content $path -Raw -Encoding UTF8
+        [IO.File]::WriteAllText($path, $content.Replace('<owner>', $Owner), (New-Object System.Text.UTF8Encoding($false)))
     }
 }
 

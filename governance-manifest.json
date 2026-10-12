@@ -69,8 +69,8 @@
       "template": "scripts/ci/classify-change.template.sh",
       "dest": "scripts/ci/classify-change.sh",
       "note": "Deterministic prose/substantive classifier.",
-      "sha256": "5cce1e06c1a89093606af6ed316c71a730a249d3fcc9575bc5a46d86080a5927",
-      "knownHashes": ["8d15f0e74b2c22de96717d14e9a710913c0a088c1cb6e0d5411bbda5facef11c"]
+      "sha256": "12dd2c0197f07dfe3547c724f54b99ddc872c18efef29366d7db9040fc2f3edb",
+      "knownHashes": ["8d15f0e74b2c22de96717d14e9a710913c0a088c1cb6e0d5411bbda5facef11c", "5cce1e06c1a89093606af6ed316c71a730a249d3fcc9575bc5a46d86080a5927"]
     },
     {
       "template": "scripts/ci/verify-review.template.sh",
@@ -83,8 +83,8 @@
       "template": "scripts/ci/validate-governance.template.sh",
       "dest": "scripts/ci/validate-governance.sh",
       "note": "Governance structure and workflow pin validation.",
-      "sha256": "578079aade4da088836e20d6fae85fe873dbc80b08715fd453c5371895e975a2",
-      "knownHashes": ["6837a1a54810935fbc790b484582714fca37652978588ac9b424260cdfa8bdf5"]
+      "sha256": "965891efee383edffc27bc56fb73c4840fceacbb5ccf8798bf9c9eec762d13d8",
+      "knownHashes": ["6837a1a54810935fbc790b484582714fca37652978588ac9b424260cdfa8bdf5", "578079aade4da088836e20d6fae85fe873dbc80b08715fd453c5371895e975a2"]
     },
     {
       "template": "project-checks.template.sh",
