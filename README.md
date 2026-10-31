@@ -21,6 +21,25 @@ critical invariants into agent-neutral Git hooks, CI, hosting protection, and hu
 
 No agent product, cloud service, server, database, or specification framework is required.
 
+## Start here
+
+Describe the result you want in your own words. Your agent should inspect existing work,
+reuse approved decisions and recommend a short path with visible defaults you can change.
+The [design philosophy](AGENTS.md#design-philosophy) applies to this kit and the products
+using its templates: remove friction, intuitive onboarding, obvious next steps, detail
+when needed, minimal babysitting, transparent progress and technology adapting to users.
+
+- **New project:** use [bootstrap](#bootstrap-a-new-repository), then fill the brief and
+  project checks. Approve the project direction before implementation starts.
+- **Already governed:** inspect the [update dry-run](#upgrade-an-existing-governed-repository)
+  and preserve customizations; do not re-scaffold it.
+- **Continuing work:** the agent reads the rules, approved scope, open work and handoff,
+  then reports the next action and handles routine authorized engineering. Blockers
+  should name the evidence and the action/actor needed to resolve them.
+
+Advanced control details follow below. Security, independent-review requirements and
+human-only governance ratification still apply; a default never grants new authority.
+
 ## Control layers
 
 | Layer | What belongs there | What it can guarantee |
@@ -62,6 +81,10 @@ explicit force option is used, initialize `main`, install Lefthook when availabl
 The specification workflow stays deliberately small: project intent in `PRD.md`, a bounded
 `SPEC.md` for substantial work, explicit non-goals/acceptance evidence, and durable `WORKLOG.md`
 entries only at meaningful checkpoints.
+
+Start with the recommended path and let the owner change ordinary choices. Reuse decisions
+already recorded; ask only for missing material decisions. Keep setup diagnostics and advanced
+options available when needed without hiding prerequisites, risks or required approvals.
 
 ## Local enforcement
 

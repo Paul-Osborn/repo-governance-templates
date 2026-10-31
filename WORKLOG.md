@@ -2,6 +2,20 @@
 
 > Durable public project history. Newest first; link to issues/PRs instead of duplicating them.
 
+## 2026-10-31 — Owner design philosophy (#24)
+
+- **Branch:** `docs/owner-design-philosophy`; [scope and evidence](https://github.com/Paul-Osborn/repo-governance-templates/issues/24).
+- **Changed:** Matching canonical/template agent principles, goal-first README onboarding,
+  and brief/spec/optional issue/PR prompts for first use, visible defaults with user
+  control, detail when needed, transparent progress and recovery without babysitting.
+  Technology adapts to users; defaults never imply consent or hide consequential gates.
+- **Verification:** Governance/manifest consistency, matching canonical/template guidance,
+  unchanged executable/security/solo-owner configuration and whitespace checks passed.
+  Full acceptance results, portability limitations and distinct exact-head AI review
+  are recorded in the issue/PR evidence; they must not be inferred from prose changes.
+- **Next:** Human owner ratifies/merges only after applicable checks. This is a proposal;
+  no remote policy, deployed installation or consuming project was updated.
+
 ## 2026-10-12 — Windows: no BOM in written files, no CR from jq (#22)
 
 - **Branch:** `fix/windows-bom-and-crlf`.

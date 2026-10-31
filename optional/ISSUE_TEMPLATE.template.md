@@ -14,3 +14,8 @@
 
 ## Extra context
 <Logs, screenshots, or anything else that helps. Do NOT paste secrets or tokens.>
+
+## Expected experience and next step
+<For relevant changes: first useful result, recommended default and how to change it,
+advanced detail only when needed, and progress/failure/resume behavior. State the next
+action and actor; reuse decisions already recorded. Mark not applicable when appropriate.>

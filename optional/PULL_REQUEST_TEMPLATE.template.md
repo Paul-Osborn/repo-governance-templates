@@ -16,3 +16,4 @@
 - [ ] Independent review covers the exact submitted code state, or this is deterministically prose-only
 - [ ] If a trust-root/governance file changed, this PR is left for the human owner to ratify and merge
 - [ ] `WORKLOG.md` updated if this advanced a tracked task
+- [ ] Relevant first-use, default override and failure/resume paths have evidence or an explicit limitation; the next action and actor are clear

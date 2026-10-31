@@ -21,6 +21,15 @@
 ## Requirements
 - <what it must do — one bullet per capability>
 
+## User experience
+- **First useful result:** <shortest safe onboarding path and obvious next step>
+- **Defaults and control:** <recommended choices, reasons, and how users change them>
+- **Detail when needed:** <ordinary path first; where advanced options live; consequential limits and approvals visible before action>
+- **Progress and recovery:** <what users can see, how failures/interruptions explain the next action, and routine work they should not need to babysit>
+
+Adapt technology, language and setup to users' experience and environment. Reuse known
+context and approved decisions; ask only for missing material decisions.
+
 ## Non-functional needs
 - **Security / privacy:** <e.g. local-only, no telemetry, how secrets are handled>
 - **Performance / limits:** <if any>
