@@ -16,6 +16,23 @@ security, governance, and authority.
 
 Only list commands and constraints that are not obvious from the repository.
 
+## Design philosophy
+
+Technology adapts to the user. Remove friction by reusing existing context and approved
+decisions. Make onboarding intuitive: start with the goal and shortest safe path to a
+useful result, using language suited to the user's experience and environment.
+
+Make next steps obvious. Recommend smart defaults with reasons, keep choices visible,
+and explain how the user can change them. Show the ordinary path first; disclose advanced
+options and diagnostics when needed. Consequential limits and approval gates must remain
+visible before the relevant action; defaults never imply consent for separately gated work.
+
+Minimize babysitting: continue routine authorized work within its limits, recover from
+durable handoffs, and ask only for missing material decisions. Keep progress transparent:
+report meaningful results, evidence, blockers, and the next action and actor. Distinguish
+proposed, implemented, tested, reviewed, merged and accepted work. These design principles
+do not expand authority or weaken tests, independent review, CI, security or owner approval.
+
 ## Autonomy and scope
 
 Once the owner approves the outcome, make ordinary implementation decisions and execute them.

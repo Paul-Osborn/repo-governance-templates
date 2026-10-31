@@ -26,6 +26,7 @@ What should be true when this is done, in plain language. The user-visible resul
 
 ## How we'll verify it works
 - <the exact test / command / screenshot that proves success — pass/fail, not "looks done">
+- <where relevant: demonstrate first use, a visible default and its override, and failure/resume with an obvious next action; state what is not applicable or remains unverified>
 
 ## Open questions
 - <anything still undecided; resolve before or during, and record the answer here>
